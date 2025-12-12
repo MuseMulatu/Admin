@@ -1,16 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+//import { useEffect, useRef, useState } from "react";
+import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useSidebar } from "../context/SidebarContext";
 import GridIcon from "../icons/grid.svg";
 import UserIcon from "../icons/user-line.svg";
 import CarIcon from "../icons/box-line.svg"; // Using box as car placeholder if car icon missing
 import DollarIcon from "../icons/dollar-line.svg";
-import MapIcon from "../icons/map.svg"; // You might need to add this or use existing
+//import MapIcon from "../icons/map.svg"; // You might need to add this or use existing
 
 interface SidebarProps {}
 
 const AppSidebar: React.FC<SidebarProps> = () => {
-  const { isExpanded, isMobileOpen, setMobileOpen, isHovered, setIsHovered } =
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered } =
     useSidebar();
   const location = useLocation();
 

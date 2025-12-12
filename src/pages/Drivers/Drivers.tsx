@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Modal from "../../components/common/Modal";
 import { drivers, Driver } from "../../data/mockData";
@@ -15,30 +15,38 @@ const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
       />
 
       {/* DRIVER DETAIL MODAL */}
-      <Modal open={!!selectedDriver} onClose={() => setSelectedDriver(null)}>
-        <h2 className="text-xl font-semibold mb-2">
-          {selectedDriver?.name}
-        </h2>
+         <Modal isOpen={!!selectedDriver} onClose={() => setSelectedDriver(null)} title={selectedDriver?.name || "Driver Details"}>
+        
+        <div className="space-y-3 mt-2">
+            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
+                <span className="font-semibold text-gray-500">Phone:</span>
+                <span className="text-gray-900 dark:text-white">{selectedDriver?.phone}</span>
+            </div>
 
-        <p className="text-sm mb-1">
-          <strong>Phone:</strong> {selectedDriver?.phone}
-        </p>
+            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
+                <span className="font-semibold text-gray-500">Vehicle:</span>
+                <span className="text-gray-900 dark:text-white">{selectedDriver?.vehicle?.model}</span>
+            </div>
 
-        <p className="text-sm mb-1">
-          <strong>Vehicle:</strong> {selectedDriver?.vehicle?.model}
-        </p>
+            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
+                <span className="font-semibold text-gray-500">Plate:</span>
+                <span className="text-gray-900 dark:text-white">{selectedDriver?.vehicle?.plate}</span>
+            </div>
 
-        <p className="text-sm mb-1">
-          <strong>Plate:</strong> {selectedDriver?.vehicle?.plate}
-        </p>
+            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
+                <span className="font-semibold text-gray-500">Status:</span>
+                <span className={`px-2 py-0.5 rounded text-xs ${
+                    selectedDriver?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                    {selectedDriver?.status}
+                </span>
+            </div>
 
-        <p className="text-sm mb-1">
-          <strong>Status:</strong> {selectedDriver?.status}
-        </p>
-
-        <p className="text-sm mb-1">
-          <strong>Earnings:</strong> ETB {selectedDriver?.earnings}
-        </p>
+            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
+                <span className="font-semibold text-gray-500">Earnings:</span>
+                <span className="text-brand-500 font-bold">ETB {selectedDriver?.earnings}</span>
+            </div>
+        </div>
       </Modal>
 
       {/* MAIN TABLE */}
