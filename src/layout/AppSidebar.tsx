@@ -14,10 +14,10 @@ const AppSidebar: React.FC<SidebarProps> = () => {
     useSidebar();
   const location = useLocation();
 
-  const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main" | "sub";
-    name: string;
-  } | null>(null);
+  // const [openSubmenu, setOpenSubmenu] = useState<{
+  //   type: "main" | "sub";
+  //   name: string;
+  // } | null>(null);
 
   const isActive = (path: string) => location.pathname === path;
 

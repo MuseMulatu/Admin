@@ -1,6 +1,39 @@
-// Simulating your SQL Database and AI Analytics for the Demo
+// Define Types explicitly to satisfy TypeScript
+export interface Vehicle {
+  color: string;
+  model: string;
+  plate: string;
+}
 
-export const drivers = [
+export interface Driver {
+  id: string;
+  name: string;
+  username: string;
+  phone: string;
+  vehicle: Vehicle;
+  status: 'active' | 'suspended' | 'available' | string;
+  tier: string;
+  rating: number;
+  earnings: number;
+  location: string;
+  online: boolean;
+}
+
+export interface Ride {
+  id: string;
+  driver: string;
+  user: string;
+  origin: string;
+  destination: string;
+  fare: number;
+  status: string;
+  type: string;
+  seats_filled: number;
+  time: string;
+}
+
+// Data
+export const drivers: Driver[] = [
   {
     id: "2vLJR0j5hndUHz6xeHBzXRlF6Vv1",
     name: "Binyam Kebede",
@@ -65,7 +98,7 @@ export const users = [
   }
 ];
 
-export const rides = [
+export const rides: Ride[] = [
   {
     id: "R-1001",
     driver: "@AbGidey3031",
@@ -92,7 +125,6 @@ export const rides = [
   }
 ];
 
-// AI Insights Data
 export const revenueData = {
   series: [
     { name: "Total Revenue", data: [4400, 5500, 5700, 5600, 6100, 5800, 6300, 6000, 6600] },
@@ -101,4 +133,4 @@ export const revenueData = {
   categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 };
 
-export const poolUtilization = [70, 65, 80, 85, 90, 75, 60]; // % seats filled
+export const poolUtilization = [70, 65, 80, 85, 90, 75, 60];

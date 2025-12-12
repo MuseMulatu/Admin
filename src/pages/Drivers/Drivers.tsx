@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Modal from "../../components/common/Modal";
-import { drivers } from "../../data/mockData";
+import { drivers, Driver } from "../../data/mockData";
 
 export default function Drivers() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDriver, setSelectedDriver] = useState(null);
+const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null); 
 
   return (
     <>
