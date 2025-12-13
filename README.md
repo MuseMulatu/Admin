@@ -1,3 +1,4 @@
+![TailAdmin React.js Dashboard Preview](./banner.png)
 
 # Hulum Admin Dashboard
 
@@ -6,8 +7,6 @@ This repository contains the **admin & dispatch dashboard** for the Hulum ride-h
 It is a **production-oriented internal tool**, built to support real-time fleet monitoring, ride dispatch, and operational oversight for a mobility system operating in Addis Ababa.
 
 The project started from the TailAdmin React template and was **heavily customized** to fit a real-time, map-heavy use case.
-
-![TailAdmin React.js Dashboard Preview](./banner.png)
 
 ---
 
