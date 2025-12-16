@@ -25,6 +25,11 @@ export const useFleetStore = create<FleetState>((set) => ({
   lastUpdated: null,
 
   fetchDrivers: async (city: string) => {
+    // Only set loading if not already loading to avoid jitter, 
+    // but for initial fetch we want visual feedback.
+    // We can check if we already have drivers to decide on 'isLoading'
+    // or just let it be handled by the UI.
+    
     set({ isLoading: true, error: null });
     
     try {

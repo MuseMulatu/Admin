@@ -2,16 +2,17 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl } from 'rea
 import { useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { useFleetStore } from '../../store/useFleetStore';
+// Use shallow to avoid re-renders if the object reference changes but content doesn't
+import { shallow } from 'zustand/shallow'; 
 
 const CENTER: [number, number] = [30.2672, -97.7431]; // Austin
 
 export default function LiveFleetMap() {
-  // Select state and actions from the global store
-  const { drivers, fetchDrivers, isLoading } = useFleetStore((state) => ({
-    drivers: state.drivers,
-    fetchDrivers: state.fetchDrivers,
-    isLoading: state.isLoading
-  }));
+  // Selecting state individually is often safer and more performant than returning an object
+  // to avoid unnecessary re-renders if you don't use 'shallow' comparison.
+  const drivers = useFleetStore((state) => state.drivers);
+  const fetchDrivers = useFleetStore((state) => state.fetchDrivers);
+  const isLoading = useFleetStore((state) => state.isLoading);
 
   useEffect(() => {
     // Initial fetch on mount
@@ -23,7 +24,7 @@ export default function LiveFleetMap() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [fetchDrivers]);
+  }, [fetchDrivers]); // fetchDrivers is stable from Zustand
 
   return (
     <div className="h-full w-full relative bg-gray-900 group">
