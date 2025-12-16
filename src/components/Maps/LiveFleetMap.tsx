@@ -1,79 +1,82 @@
-//import React from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl } from 'react-leaflet';
+import { useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
-import { drivers } from '../../data/mockData'; // We'll use your mock data
+import { useFleetStore } from '../../store/useFleetStore';
 
-// Coordinates for Addis Ababa
-const CENTER_POSITION: [number, number] = [9.005401, 38.763611];
+const CENTER: [number, number] = [30.2672, -97.7431]; // Austin
 
-// Simulating some random offsets to scatter drivers around Addis for the demo
-// More realistic geographic scatter (small ~200–300m jitter)
-const getRandomOffset = (scale = 0.002) => {
-  return (Math.random() - 0.5) * scale;
-};
+export default function LiveFleetMap() {
+  // Select state and actions from the global store
+  const { drivers, fetchDrivers, isLoading } = useFleetStore((state) => ({
+    drivers: state.drivers,
+    fetchDrivers: state.fetchDrivers,
+    isLoading: state.isLoading
+  }));
 
+  useEffect(() => {
+    // Initial fetch on mount
+    fetchDrivers("Austin, TX");
 
-const LiveFleetMap = () => {
+    // Optional: Set up live polling every 30 seconds
+    const interval = setInterval(() => {
+        fetchDrivers("Austin, TX");
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchDrivers]);
+
   return (
-    <div className="h-[400px] w-full rounded-2xl overflow-hidden z-0 relative">
+    <div className="h-full w-full relative bg-gray-900 group">
+      
+      {/* Loading Overlay (Only shows if loading AND no drivers are visible yet) */}
+      {isLoading && drivers.length === 0 && (
+        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm rounded-2xl">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
+            <span className="text-xs font-medium text-white/80">Locating Fleet...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Map Instance */}
       <MapContainer 
-        center={CENTER_POSITION} 
+        center={CENTER} 
         zoom={13} 
-        scrollWheelZoom={false} 
-        style={{ height: "100%", width: "100%", zIndex: 0 }}
+        scrollWheelZoom={true} 
+        zoomControl={false} // We use custom position below
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
-        {/* Dark Mode Map Style (CartoDB Dark Matter) - Looks amazing in dashboards */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
+        
+        <ZoomControl position="bottomright" />
 
-        {drivers.map((driver, index) => {
-          const position: [number, number] = [
-            CENTER_POSITION[0] + getRandomOffset(),
-            CENTER_POSITION[1] + getRandomOffset(),
-          ];
-          return (
-            <CircleMarker 
-              key={index} 
-              center={position} 
-              pathOptions={{ 
-                color: driver.status === 'active' ? '#10B981' : '#F59E0B', 
-                fillColor: driver.status === 'active' ? '#10B981' : '#F59E0B', 
-                fillOpacity: 0.7 
-              }}
-              radius={6}
-            >
-              <Tooltip direction="top" offset={[0, -10]} opacity={1}>
-                <span><b>{driver.name}</b><br/>{driver.vehicle.model}</span>
-              </Tooltip>
-              <Popup>
-                <div className="p-1">
-                  <h3 className="font-bold">{driver.name}</h3>
-                  <p className="text-xs text-gray-500">{driver.phone}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded text-white ${driver.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}`}>
-                    {driver.status}
-                  </span>
-                </div>
-              </Popup>
-            </CircleMarker>
-          );
-        })}
+        {drivers.map((d, i) => (
+          <CircleMarker
+            key={d.user_id || i}
+            center={[d.lat, d.lng]}
+            radius={6}
+            pathOptions={{
+              color: d.status === 'available' ? '#10B981' : '#F59E0B',
+              fillColor: d.status === 'available' ? '#10B981' : '#F59E0B',
+              fillOpacity: 0.7,
+              weight: 2,
+              className: 'transition-all duration-300'
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+              <div className="text-center">
+                <b className="block text-sm">{d.share_username || 'Driver'}</b>
+                <span className={`text-xs uppercase font-bold ${d.status === 'available' ? 'text-green-600' : 'text-amber-600'}`}>
+                    {d.status}
+                </span>
+              </div>
+            </Tooltip>
+          </CircleMarker>
+        ))}
       </MapContainer>
-      
-      {/* Overlay Legend */}
-      <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg z-[1000] text-xs">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-2 h-2 rounded-full bg-green-500"></span>
-          <span className="text-gray-600 dark:text-gray-300">Active (Available)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-          <span className="text-gray-600 dark:text-gray-300">In Ride / Busy</span>
-        </div>
-      </div>
     </div>
   );
-};
-
-export default LiveFleetMap;
+}
