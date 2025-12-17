@@ -2,14 +2,12 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl } from 'rea
 import { useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { useFleetStore } from '../../store/useFleetStore';
-// Use shallow to avoid re-renders if the object reference changes but content doesn't
-import { shallow } from 'zustand/shallow'; 
 
 const CENTER: [number, number] = [30.2672, -97.7431]; // Austin
 
 export default function LiveFleetMap() {
-  // Selecting state individually is often safer and more performant than returning an object
-  // to avoid unnecessary re-renders if you don't use 'shallow' comparison.
+  // Selecting state individually. Safer, performant than returning an object
+  // avoids unnecessary re-renders
   const drivers = useFleetStore((state) => state.drivers);
   const fetchDrivers = useFleetStore((state) => state.fetchDrivers);
   const isLoading = useFleetStore((state) => state.isLoading);
@@ -18,7 +16,7 @@ export default function LiveFleetMap() {
     // Initial fetch on mount
     fetchDrivers("Austin, TX");
 
-    // Optional: Set up live polling every 30 seconds
+    // live polling every 30 seconds
     const interval = setInterval(() => {
         fetchDrivers("Austin, TX");
     }, 30000);
