@@ -1,5 +1,3 @@
-![TailAdmin React.js Dashboard Preview](./banner.png)
-
 # Hulum Admin Dashboard
 
 This repository contains the **admin & dispatch dashboard** for the Hulum ride-hailing platform.
