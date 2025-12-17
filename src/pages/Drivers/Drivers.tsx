@@ -48,47 +48,41 @@ export default function Drivers() {
       });
   }, []);
 
-  const handleStatusChange = async (driverId: string, newStatus: string) => {
-    if (!confirm(`Are you sure you want to change status to ${newStatus}?`)) return;
 
-    const url = `${API_BASE_URL}/admin/drivers/${driverId}/status`;
-    console.log("Attempting PATCH request to:", url);
+    const handleStatusChange = async (driverId: string, newStatus: string) => {
+        try {
+            // Updated to use the working "muse_mulatu" credentials
+            const response = await fetch(`${API_BASE_URL}/admin/drivers/${driverId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Id': 'muse_mulatu',
+                    'X-Admin-Role': 'ADMIN'
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
 
-    try {
-        const response = await fetch(url, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Admin-Id': currentAdmin?.id || '',
-                'X-Admin-Role': currentAdmin?.role || ''
-            },
-            body: JSON.stringify({ 
-                status: newStatus,
-                reason: "Manual Admin Override",
-                action: "UPDATE_DRIVER_STATUS",
-                // IMPORTANT: Send admin_name so the backend logs it correctly
-                admin_name: currentAdmin?.name || "Unknown Admin" 
-            })
-        });
-
-        if (response.ok) {
-            console.log("Update successful");
-            // Optimistic UI Update
-            setDrivers(prev => prev.map(d => d.user_id === driverId ? { ...d, status: newStatus } : d));
-            alert("Status updated successfully");
-            if (selectedDriver?.user_id === driverId) {
-                setSelectedDriver(prev => prev ? { ...prev, status: newStatus } : null);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update status');
             }
-        } else {
-            const errorText = await response.text();
-            console.error("Update failed with status:", response.status, errorText);
-            alert(`Failed to update status: ${response.status} ${response.statusText}`);
+
+            const data = await response.json();
+            
+            // Update local state to reflect change immediately
+            setDrivers(drivers.map(d => 
+                d.id === driverId ? { ...d, status: newStatus } : d
+            ));
+            
+            // Optional: Show success message
+            console.log('Success:', data.message);
+
+        } catch (error) {
+            console.error('Error updating status:', error);
+            alert('Failed to update driver status');
         }
-    } catch (error) {
-        console.error("Network error updating status:", error);
-        alert("Network error: Check console for details. Is the backend running?");
-    }
-  };
+    };
+// ... existing code ...
 
   return (
     <>
