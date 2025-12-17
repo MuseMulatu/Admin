@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAdminStore, AVAILABLE_ADMINS, AdminUser } from '../../store/useAdminStore';
-import Modal from '../common/Modal'; // Using your existing Modal
+//import Modal from '../common/Modal'; // Using your existing Modal
 
 export default function AdminSelector() {
   const { isAuthenticated, login } = useAdminStore();

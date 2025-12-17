@@ -125,7 +125,9 @@ export default function Drivers() {
                 <div>
                     <span className="block text-xs font-semibold text-gray-500 uppercase">Status</span>
                     <span className={`inline-block mt-1 px-2 py-1 rounded text-xs font-bold ${
-                        selectedDriver?.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                        selectedDriver?.status === 'available' ? 'bg-green-100 text-green-700' : 
+                        selectedDriver?.status === 'suspended' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
                     }`}>
                         {selectedDriver?.status}
                     </span>
@@ -140,21 +142,34 @@ export default function Drivers() {
             {canManageDrivers && (
                 <div className="border-t pt-4 mt-2 border-gray-100 dark:border-gray-700">
                     <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Admin Actions</h4>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        {/* Suspend Action */}
                         {selectedDriver?.status !== 'suspended' && (
                             <button 
                                 onClick={() => handleStatusChange(selectedDriver!.user_id, 'suspended')}
-                                className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-sm font-medium transition"
+                                className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-sm font-medium transition border border-red-200"
                             >
                                 Suspend Driver
                             </button>
                         )}
-                        {selectedDriver?.status === 'suspended' && (
+                        
+                        {/* Make Available (Reactivate) */}
+                        {selectedDriver?.status !== 'available' && (
                             <button 
                                 onClick={() => handleStatusChange(selectedDriver!.user_id, 'available')}
-                                className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded text-sm font-medium transition"
+                                className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded text-sm font-medium transition border border-green-200"
                             >
-                                Reactivate
+                                {selectedDriver?.status === 'suspended' ? 'Reactivate Driver' : 'Mark Available'}
+                            </button>
+                        )}
+
+                        {/* Force Offline (if they are stuck in available/busy but not suspended) */}
+                        {selectedDriver?.status === 'available' && (
+                             <button 
+                                onClick={() => handleStatusChange(selectedDriver!.user_id, 'offline')}
+                                className="px-3 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded text-sm font-medium transition border border-gray-300"
+                            >
+                                Force Offline
                             </button>
                         )}
                     </div>

@@ -9,8 +9,8 @@ import Pricing from "./pages/Settings/Pricing";
 import Rides from "./pages/Rides/Rides"; 
 import Riders from "./pages/Riders/Riders"; 
 import Financials from "./pages/Financials/Financials"; 
-import AdminLogs from "./pages/Logs/AdminLogs";
-import AdminSelector from "./components/Auth/AdminSelector"; 
+import AdminLogs from "./pages/AuditLogs/AdminLogs";
+import AdminSelector from "./components/auth/AdminSelector"; 
 
 export default function App() {
   return (
