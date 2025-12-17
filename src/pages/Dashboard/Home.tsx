@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Skeleton from "../../components/common/Skeleton";
 import ReactApexChart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import LiveFleetMap from "../../components/Maps/LiveFleetMap";
-import { useFleetStore } from "../../store/useFleetStore"; // Import store
+import { useFleetStore } from "../../store/useFleetStore"; 
 
 /* ---------- UI Components ---------- */
 
@@ -77,7 +77,8 @@ export default function Home() {
       height: 300,
       fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
-      animations: { enabled: true, easing: 'easeinout', speed: 800 },
+            // Cast to any -> avoids strict type error on 'easing' (valid in JS but strict in TS)
+      animations: { enabled: true, speed: 800, easing: 'easeinout' } as any, 
       dropShadow: { enabled: true, top: 10, left: 0, blur: 3, color: '#4F46E5', opacity: 0.15 }
     },
     stroke: { curve: "smooth", width: 3 },
