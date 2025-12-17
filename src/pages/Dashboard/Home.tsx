@@ -233,62 +233,80 @@ export default function Home() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-gray-200 bg-white p-0 shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="font-bold text-gray-900 dark:text-white">Live Dispatch</h3>
-            </div>
+<div className="rounded-3xl border border-gray-200 bg-white p-0 shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden flex flex-col">
+  <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+    <h3 className="font-bold text-gray-900 dark:text-white">Live Dispatch</h3>
+  </div>
             <div className="overflow-y-auto max-h-[380px]">
               <table className="w-full text-left">
-                <thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm">
-                  <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <th className="px-6 py-3">Ride ID</th>
-                    <th className="px-6 py-3">Type</th>
-                    <th className="px-6 py-3 text-right">Status</th>
-                  </tr>
-                </thead>
+<thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm">
+  <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+    <th className="px-6 py-3">Ride ID</th>
+    <th className="px-6 py-3">Type</th>
+    <th className="px-6 py-3 text-right">Status</th>
+  </tr>
+</thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {dashboard.liveRides.map((ride: any) => (
-                    <tr key={ride.id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">{ride.id}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          {ride.profile_image ? (
-                            <img 
-                              src={ride.profile_image} 
-                              alt={ride.driver} 
-                              className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${ride.driver}&background=random`;
-                              }}
-                            />
-                          ) : (
-                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
-                              {ride.driver ? ride.driver.charAt(0).toUpperCase() : "?"}
-                            </div>
-                          )}
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              {ride.driver || "Finding Driver..."}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${ride.type === 'corider' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800'}`}>
-                          {ride.type === 'corider' ? 'Pool' : 'Standard'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-medium text-emerald-500">{ride.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {dashboard.liveRides.map((ride: any) => (
+          <tr
+            key={ride.id}
+            className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            {/* Ride ID + Driver */}
+            <td className="px-6 py-4">
+              <div className="flex items-start gap-3">
+                {ride.profile_image ? (
+                  <img
+                    src={ride.profile_image}
+                    alt={ride.driver}
+                    className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        `https://ui-avatars.com/api/?name=${ride.driver}&background=random`;
+                    }}
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                    {ride.driver ? ride.driver.charAt(0).toUpperCase() : "?"}
+                  </div>
+                )}
+
+                <div className="flex flex-col leading-tight">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {ride.driver || "Finding Driver..."}
+                  </span>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    {ride.id}
+                  </span>
+                </div>
+              </div>
+            </td>
+
+            {/* Type */}
+            <td className="px-6 py-4">
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                  ride.type === "corider"
+                    ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+                }`}
+              >
+                {ride.type === "corider" ? "Pool" : "Standard"}
+              </span>
+            </td>
+
+            {/* Status */}
+            <td className="px-6 py-4 text-right">
+              <span className="text-sm font-medium text-emerald-500">
+                {ride.status}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
         </div>
       </div>
     </>
