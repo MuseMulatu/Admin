@@ -65,12 +65,30 @@ export default function LiveFleetMap() {
               className: 'transition-all duration-300'
             }}
           >
-            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
-              <div className="text-center">
-                <b className="block text-sm">{d.share_username || 'Driver'}</b>
-                <span className={`text-xs uppercase font-bold ${d.status === 'available' ? 'text-green-600' : 'text-amber-600'}`}>
-                    {d.status}
-                </span>
+                     <Tooltip direction="top" offset={[0, -10]} opacity={1} className="custom-tooltip">
+              <div className="flex flex-col items-center gap-2 p-1 min-w-[100px]">
+                {/* Profile Image with Fallback */}
+                {d.profile_image ? (
+                  <img 
+                    src={d.profile_image} 
+                    alt={d.share_username || 'Driver'} 
+                    className="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${d.share_username || 'Driver'}&background=random`;
+                    }}
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm text-gray-500 font-bold">
+                    {(d.share_username || 'D').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                
+                <div className="text-center">
+                  <b className="block text-sm text-gray-800">{d.share_username || 'Driver'}</b>
+                  <span className={`text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded-full ${d.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {d.status}
+                  </span>
+                </div>
               </div>
             </Tooltip>
           </CircleMarker>
