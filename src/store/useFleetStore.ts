@@ -1,13 +1,12 @@
 import { create } from 'zustand';
 
-// Define the shape of a Driver object based on your API
 export interface Driver {
   user_id: string;
   lat: number;
   lng: number;
   share_username?: string;
   status: 'available' | 'busy' | string;
-  // Add other fields from your API if needed
+  profile_image?: string;
 }
 
 interface FleetState {
