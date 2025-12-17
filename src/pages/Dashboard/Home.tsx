@@ -250,9 +250,29 @@ export default function Home() {
                   {dashboard.liveRides.map((ride: any) => (
                     <tr key={ride.id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900 dark:text-white">{ride.id}</span>
-                          <span className="text-xs text-gray-500">{ride.driver || "Finding Driver..."}</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">{ride.id}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {ride.profile_image ? (
+                            <img 
+                              src={ride.profile_image} 
+                              alt={ride.driver} 
+                              className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${ride.driver}&background=random`;
+                              }}
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                              {ride.driver ? ride.driver.charAt(0).toUpperCase() : "?"}
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              {ride.driver || "Finding Driver..."}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
