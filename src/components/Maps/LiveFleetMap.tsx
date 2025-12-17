@@ -2,32 +2,37 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl } from 'rea
 import { useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { useFleetStore } from '../../store/useFleetStore';
+import { useAdminStore } from '../../store/useAdminStore'; 
 
 const CENTER: [number, number] = [30.2672, -97.7431]; // Austin
 
 export default function LiveFleetMap() {
-  // Selecting state individually. Safer, performant than returning an object
-  // avoids unnecessary re-renders
   const drivers = useFleetStore((state) => state.drivers);
   const fetchDrivers = useFleetStore((state) => state.fetchDrivers);
+  const updateDriverStatus = useFleetStore((state) => state.updateDriverStatus); // Get update action
   const isLoading = useFleetStore((state) => state.isLoading);
+  
+  // Auth check
+  const hasPermission = useAdminStore((state) => state.hasPermission);
+  const canUpdate = hasPermission('ADMIN'); // Only ADMIN or SUPER_ADMIN can update
 
   useEffect(() => {
-    // Initial fetch on mount
     fetchDrivers("Austin, TX");
-
-    // live polling every 30 seconds
     const interval = setInterval(() => {
         fetchDrivers("Austin, TX");
     }, 30000);
-
     return () => clearInterval(interval);
-  }, [fetchDrivers]); // fetchDrivers is stable from Zustand
+  }, [fetchDrivers]);
+
+  const handleStatusChange = (driverId: string, status: string) => {
+      if (!confirm(`Are you sure you want to mark this driver as ${status}? This action will be logged.`)) return;
+      updateDriverStatus(driverId, status);
+      // Here you would also trigger the API call and log to your logs table
+  };
 
   return (
     <div className="h-full w-full relative bg-gray-900 group">
       
-      {/* Loading Overlay (Only shows if loading AND no drivers are visible yet) */}
       {isLoading && drivers.length === 0 && (
         <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm rounded-2xl">
           <div className="flex flex-col items-center gap-3">
@@ -37,12 +42,11 @@ export default function LiveFleetMap() {
         </div>
       )}
 
-      {/* Map Instance */}
       <MapContainer 
         center={CENTER} 
         zoom={13} 
         scrollWheelZoom={true} 
-        zoomControl={false} // We use custom position below
+        zoomControl={false} 
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
         <TileLayer
@@ -58,16 +62,15 @@ export default function LiveFleetMap() {
             center={[d.lat, d.lng]}
             radius={6}
             pathOptions={{
-              color: d.status === 'available' ? '#10B981' : '#F59E0B',
-              fillColor: d.status === 'available' ? '#10B981' : '#F59E0B',
+              color: d.status === 'available' ? '#10B981' : d.status === 'offline' ? '#6B7280' : '#F59E0B',
+              fillColor: d.status === 'available' ? '#10B981' : d.status === 'offline' ? '#6B7280' : '#F59E0B',
               fillOpacity: 0.7,
               weight: 2,
               className: 'transition-all duration-300'
             }}
           >
-                     <Tooltip direction="top" offset={[0, -10]} opacity={1} className="custom-tooltip">
-              <div className="flex flex-col items-center gap-2 p-1 min-w-[100px]">
-                {/* Profile Image with Fallback */}
+            <Tooltip direction="top" offset={[0, -10]} opacity={1} className="custom-tooltip">
+              <div className="flex flex-col items-center gap-2 p-1 min-w-[140px]">
                 {d.profile_image ? (
                   <img 
                     src={d.profile_image} 
@@ -83,11 +86,41 @@ export default function LiveFleetMap() {
                   </div>
                 )}
                 
-                <div className="text-center">
-                  <b className="block text-sm text-gray-800">{d.share_username || 'Driver'}</b>
-                  <span className={`text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded-full ${d.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {d.status}
-                  </span>
+                <div className="text-center w-full">
+                  <b className="block text-sm text-gray-800 mb-1">{d.share_username || 'Driver'}</b>
+                  <div className="flex flex-wrap justify-center gap-1 mb-2">
+                    <span className={`text-[10px] uppercase font-bold tracking-wide px-1.5 py-0.5 rounded-full ${d.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {d.status}
+                    </span>
+                  </div>
+
+                  {/* ADMIN ACTIONS */}
+                  {canUpdate && (
+                      <div className="grid grid-cols-2 gap-1 w-full border-t pt-2 mt-1">
+                          {d.status !== 'offline' && (
+                              <button 
+                                onClick={() => handleStatusChange(d.user_id, 'offline')}
+                                className="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded"
+                              >
+                                Force Offline
+                              </button>
+                          )}
+                          {d.status === 'offline' && (
+                              <button 
+                                onClick={() => handleStatusChange(d.user_id, 'available')}
+                                className="text-[10px] bg-green-50 text-green-600 hover:bg-green-100 px-2 py-1 rounded"
+                              >
+                                Activate
+                              </button>
+                          )}
+                          <button 
+                            className="text-[10px] bg-gray-50 text-gray-600 hover:bg-gray-100 px-2 py-1 rounded"
+                            onClick={() => alert("Detailed logs would open here")}
+                          >
+                            View Logs
+                          </button>
+                      </div>
+                  )}
                 </div>
               </div>
             </Tooltip>

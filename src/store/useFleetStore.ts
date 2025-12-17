@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 
+// Define the shape of a Driver object based on your API
 export interface Driver {
   user_id: string;
   lat: number;
   lng: number;
   share_username?: string;
-  status: 'available' | 'busy' | string;
-  profile_image?: string;
+  status: 'available' | 'busy' | 'offline' | 'suspended' | string;
+  profile_image?: string; // 
 }
 
 interface FleetState {
@@ -15,9 +16,10 @@ interface FleetState {
   error: string | null;
   lastUpdated: number | null;
   fetchDrivers: (city: string) => Promise<void>;
+  updateDriverStatus: (driverId: string, newStatus: string) => void; // New action for local updates
 }
 
-export const useFleetStore = create<FleetState>((set) => ({
+export const useFleetStore = create<FleetState>((set, get) => ({
   drivers: [],
   isLoading: false,
   error: null,
@@ -25,10 +27,7 @@ export const useFleetStore = create<FleetState>((set) => ({
 
   fetchDrivers: async (city: string) => {
     // Only set loading if not already loading to avoid jitter, 
-    // but for initial fetch we want visual feedback.
-    // We can check if we already have drivers to decide on 'isLoading'
-    // or just let it be handled by the UI.
-    
+    // but for initial fetch, visual feedback.
     set({ isLoading: true, error: null });
     
     try {
@@ -40,7 +39,7 @@ export const useFleetStore = create<FleetState>((set) => ({
 
       const data = await response.json();
 
-      // Robustness check: Ensure data is an array before setting
+      // ensure data is an array before setting
       if (Array.isArray(data)) {
         set({ 
           drivers: data, 
@@ -64,4 +63,16 @@ export const useFleetStore = create<FleetState>((set) => ({
       });
     }
   },
+
+  // immediate UI feedback
+  updateDriverStatus: (driverId, newStatus) => {
+    const { drivers } = get();
+    const updatedDrivers = drivers.map(d => 
+        d.user_id === driverId ? { ...d, status: newStatus } : d
+    );
+    set({ drivers: updatedDrivers });
+    
+    // In a real app, you would also make a PATCH request here
+    // fetch(`/api/drivers/${driverId}`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) })
+  }
 }));

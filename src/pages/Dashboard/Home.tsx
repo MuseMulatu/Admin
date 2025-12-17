@@ -4,7 +4,8 @@ import Skeleton from "../../components/common/Skeleton";
 import ReactApexChart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import LiveFleetMap from "../../components/Maps/LiveFleetMap";
-import { useFleetStore } from "../../store/useFleetStore"; 
+import { useFleetStore } from "../../store/useFleetStore";
+import { useAdminStore } from "../../store/useAdminStore"; 
 
 /* ---------- UI Components ---------- */
 
@@ -50,26 +51,145 @@ const SmallMetric = ({ label, value, colorClass = "text-gray-900 dark:text-white
   </div>
 );
 
+// --- ShadCN-style Logs Component ---
+const ActivityLog = ({ logs }: { logs: any[] }) => {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white text-zinc-950 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 h-full flex flex-col">
+      <div className="flex flex-col space-y-1.5 p-6 pb-4">
+        <h3 className="text-lg font-semibold leading-none tracking-tight">Recent Activity</h3>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Latest audit logs and system actions.
+        </p>
+      </div>
+      <div className="p-0 flex-1 overflow-y-auto max-h-[350px]">
+        <div className="w-full overflow-auto">
+          <table className="w-full text-sm text-left">
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {logs.map((log) => (
+                <tr key={log.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors">
+                  <td className="p-4 align-middle font-medium">
+                    <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">{log.action}</span>
+                    </div>
+                  </td>
+                  <td className="p-4 align-middle text-zinc-500 dark:text-zinc-400">
+                    <span className="text-xs">{log.admin_name}</span>
+                  </td>
+                  <td className="p-4 align-middle text-right">
+                    <span className="text-xs text-zinc-400 font-mono">
+                      {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {logs.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-zinc-500 text-xs italic">
+                    No recent activity logged.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<any>(null);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]); // State for logs
   const [chartRange, setChartRange] = useState<'weekly' | 'monthly'>('weekly');
   
-  // Use global fleet loading state for UI feedback
   const isMapLoading = useFleetStore(state => state.isLoading);
+  
+  // Auth & Permissions
+  const { currentAdmin, hasPermission, logout } = useAdminStore();
+  const canUpdateRides = hasPermission('ADMIN');
 
   useEffect(() => {
-    fetch(`https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setDashboard(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Dashboard fetch failed:", err);
-        setLoading(false);
+    // Parallel fetch for dashboard and logs
+    const fetchData = async () => {
+        try {
+            const dashRes = await fetch(`https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`);
+            const dashData = await dashRes.json();
+            setDashboard(dashData);
+
+            // Fetch Logs
+            const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
+                headers: { 'X-Admin-Role': currentAdmin?.role || 'READ_ONLY' }
+            });
+            const logsData = await logsRes.json();
+            // Take only top 5 for the dashboard widget
+            setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 10) : []);
+
+            setLoading(false);
+        } catch (err) {
+            console.error("Dashboard data load error:", err);
+            setLoading(false);
+        }
+    };
+
+    fetchData();
+  }, [currentAdmin]);
+
+  const handleAssignDriver = async (rideId: string) => {
+      if (!confirm(`Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`)) return;
+      
+      try {
+        const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Headers for backend audit middleware
+            'X-Admin-Id': currentAdmin?.id || '',
+            'X-Admin-Role': currentAdmin?.role || ''
+          },
+          body: JSON.stringify({
+            assigned_by: currentAdmin?.name,
+            action: 'MANUAL_DRIVER_ASSIGNMENT',
+            timestamp: new Date().toISOString()
+          })
+        });
+
+        if (response.ok) {
+          alert("Driver assignment initiated and logged successfully.");
+          // Ideally you would re-fetch the dashboard here to show the updated status
+        } else {
+          const err = await response.json().catch(() => ({}));
+          alert(`Failed to assign driver: ${err.message || 'Unknown server error'}`);
+        }
+      } catch (error) {
+        console.error("Assignment error:", error);
+        alert("Network error connecting to operations backend.");
+      }
+  };
+
+  const handleViewDetails = async (rideId: string) => {
+    try {
+      const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}`, {
+        method: 'GET',
+        headers: {
+            'X-Admin-Id': currentAdmin?.id || '',
+            'X-Admin-Role': currentAdmin?.role || ''
+        }
       });
-  }, []);
+
+      if (response.ok) {
+        const data = await response.json();
+        // In a real app, this would open a Modal. For now, we alert the details.
+        alert(`Ride Details:\n----------------\nID: ${data.id}\nPassenger: ${data.passenger_name}\nPickup: ${data.origin_address}\nDropoff: ${data.destination_address}\nFare: ${data.fare}\nStatus: ${data.status}`);
+      } else {
+        alert("Could not fetch ride details.");
+      }
+    } catch (err) {
+      console.error("Fetch details error:", err);
+      alert("Network error fetching details.");
+    }
+  };
 
   const chartOptions: ApexOptions = {
     chart: {
@@ -77,7 +197,6 @@ export default function Home() {
       height: 300,
       fontFamily: "Inter, sans-serif",
       toolbar: { show: false },
-            // Cast to any -> avoids strict type error on 'easing' (valid in JS but strict in TS)
       animations: { enabled: true, speed: 800, easing: 'easeinout' } as any, 
       dropShadow: { enabled: true, top: 10, left: 0, blur: 3, color: '#4F46E5', opacity: 0.15 }
     },
@@ -129,14 +248,26 @@ export default function Home() {
             Real-time fleet analytics for <span className="font-semibold text-brand-500">Austin, TX</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-           <span className="flex h-3 w-3 relative">
-             <span className={`absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 ${isMapLoading ? 'animate-none' : 'animate-ping'}`}></span>
-             <span className={`relative inline-flex rounded-full h-3 w-3 ${isMapLoading ? 'bg-yellow-500' : 'bg-green-500'}`}></span>
-           </span>
-           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-             {isMapLoading ? 'Updating Fleet...' : 'System Operational'}
-           </span>
+        
+        <div className="flex items-center gap-4">
+           {/* Admin Identity Badge */}
+           {currentAdmin && (
+               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={logout} title="Click to Switch Identity">
+                   <img src={currentAdmin.avatar} alt="Admin" className="w-6 h-6 rounded-full" />
+                   <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{currentAdmin.name}</span>
+                   <span className="text-[10px] uppercase font-bold text-brand-500 border border-brand-200 px-1 rounded">{currentAdmin.role.replace('_', '')}</span>
+               </div>
+           )}
+
+           <div className="flex items-center gap-2">
+             <span className="flex h-3 w-3 relative">
+               <span className={`absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 ${isMapLoading ? 'animate-none' : 'animate-ping'}`}></span>
+               <span className={`relative inline-flex rounded-full h-3 w-3 ${isMapLoading ? 'bg-yellow-500' : 'bg-green-500'}`}></span>
+             </span>
+             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+               {isMapLoading ? 'Updating Fleet...' : 'System Operational'}
+             </span>
+           </div>
         </div>
       </div>
 
@@ -165,47 +296,37 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Smart Insights Panel */}
-          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-gray-900 dark:text-white text-lg">AI Predictions</h3>
-                <AIBadge />
-              </div>
-              <div className="space-y-8">
-                <div className="group">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-500 font-medium">Demand Surge (Downtown)</span>
-                    <span className="text-rose-500 font-bold">High Probability</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 dark:bg-gray-800 overflow-hidden">
-                    <div className="bg-gradient-to-r from-rose-500 to-orange-500 h-2 rounded-full w-[85%] shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
-                  </div>
-                  <p className="mt-2 text-xs text-gray-400">Predicted spike at 18:00 due to local events.</p>
+          {/* RIGHT COLUMN: Insights + LOGS (New ShadCN Section) */}
+          <div className="flex flex-col gap-6 h-[450px]">
+             {/* Smart Insights (Smaller now) */}
+             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 flex-1 overflow-hidden">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-sm">AI Predictions</h3>
+                  <AIBadge />
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-500 font-medium">Dynamic Pricing</span>
-                    <span className="text-indigo-500 font-bold">1.5x Multiplier</span>
+                <div className="space-y-4">
+                  <div className="group">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-500 font-medium">Demand Surge (Downtown)</span>
+                      <span className="text-rose-500 font-bold">High</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-800 overflow-hidden">
+                      <div className="bg-gradient-to-r from-rose-500 to-orange-500 h-1.5 rounded-full w-[85%] shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 dark:bg-gray-800">
-                    <div className="bg-indigo-500 h-2 rounded-full w-[60%]" />
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">🌱 CO₂ Savings via pooling</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
+                      {dashboard?.metrics?.co2Saved} kgs 
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div className="mt-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 p-5">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400">🌱</div>
-                <div>
-                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Sustainability Impact</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                    {dashboard?.metrics?.co2Saved} <span className="text-sm font-normal text-gray-500">kg CO₂</span>
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Saved today via efficient pooling.</p>
-                </div>
-              </div>
-            </div>
+             </div>
+
+             {/* SHADCN-STYLE LOGS WIDGET */}
+             <div className="flex-1">
+                <ActivityLog logs={recentLogs} />
+             </div>
           </div>
         </div>
 
@@ -233,20 +354,23 @@ export default function Home() {
             )}
           </div>
 
-<div className="rounded-3xl border border-gray-200 bg-white p-0 shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden flex flex-col">
+ <div className="rounded-3xl border border-gray-200 bg-white p-0 shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden flex flex-col">
   <div className="p-6 border-b border-gray-100 dark:border-gray-800">
     <h3 className="font-bold text-gray-900 dark:text-white">Live Dispatch</h3>
   </div>
-            <div className="overflow-y-auto max-h-[380px]">
-              <table className="w-full text-left">
-<thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm">
-  <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-    <th className="px-6 py-3">Ride ID</th>
-    <th className="px-6 py-3">Type</th>
-    <th className="px-6 py-3 text-right">Status</th>
-  </tr>
-</thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+
+  <div className="overflow-y-auto max-h-[380px]">
+    <table className="w-full text-left">
+      <thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm">
+        <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <th className="px-6 py-3">Ride ID</th>
+          <th className="px-6 py-3">Type</th>
+          <th className="px-6 py-3 text-right">Status</th>
+          {canUpdateRides && <th className="px-6 py-3 text-right">Action</th>}
+        </tr>
+      </thead>
+
+      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
         {dashboard.liveRides.map((ride: any) => (
           <tr
             key={ride.id}
@@ -297,16 +421,36 @@ export default function Home() {
 
             {/* Status */}
             <td className="px-6 py-4 text-right">
-              <span className="text-sm font-medium text-emerald-500">
-                {ride.status}
-              </span>
+              <span className="text-sm font-medium text-emerald-500">{ride.status}</span>
             </td>
+
+            {/* Admin Action Column */}
+            {canUpdateRides && (
+              <td className="px-6 py-4 text-right">
+                {!ride.driver ? (
+                  <button
+                    onClick={() => handleAssignDriver(ride.id)}
+                    className="text-xs font-semibold text-brand-500 hover:text-brand-600 hover:underline"
+                  >
+                    Assign
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleViewDetails(ride.id)}
+                    className="text-xs text-gray-400 hover:text-gray-500"
+                  >
+                    Details
+                  </button>
+                )}
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
     </table>
   </div>
 </div>
+
         </div>
       </div>
     </>

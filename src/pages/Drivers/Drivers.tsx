@@ -1,11 +1,94 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Modal from "../../components/common/Modal";
-import { drivers, Driver } from "../../data/mockData";
+import { useAdminStore } from "../../store/useAdminStore"; // Import Auth Store
+
+// Define Driver Interface matching your backend
+interface Driver {
+  user_id: string;
+  share_username: string; 
+  phone_number: string; 
+  vehicle_details: any; 
+  status: string;
+  earnings: number;
+  profile_image?: string;
+}
+
+// Configuration: Switch this to http://localhost:YOUR_PORT if running locally
+const API_BASE_URL = "https://app.share-rides.com"; 
 
 export default function Drivers() {
   const [searchTerm, setSearchTerm] = useState("");
-const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null); 
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  
+  // Auth & Permissions
+  const { currentAdmin, hasPermission } = useAdminStore();
+  const canManageDrivers = hasPermission('ADMIN');
+
+  // Fetch Drivers
+  useEffect(() => {
+    // DEBUG: Log where we are fetching from
+    console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
+
+    fetch(`${API_BASE_URL}/admin/drivers`) 
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const adaptedData = Array.isArray(data) ? data : []; 
+        setDrivers(adaptedData);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch drivers:", err);
+        setIsLoading(false);
+      });
+  }, []);
+
+  const handleStatusChange = async (driverId: string, newStatus: string) => {
+    if (!confirm(`Are you sure you want to change status to ${newStatus}?`)) return;
+
+    const url = `${API_BASE_URL}/admin/drivers/${driverId}/status`;
+    console.log("Attempting PATCH request to:", url);
+
+    try {
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Id': currentAdmin?.id || '',
+                'X-Admin-Role': currentAdmin?.role || ''
+            },
+            body: JSON.stringify({ 
+                status: newStatus,
+                reason: "Manual Admin Override",
+                action: "UPDATE_DRIVER_STATUS",
+                // IMPORTANT: Send admin_name so the backend logs it correctly
+                admin_name: currentAdmin?.name || "Unknown Admin" 
+            })
+        });
+
+        if (response.ok) {
+            console.log("Update successful");
+            // Optimistic UI Update
+            setDrivers(prev => prev.map(d => d.user_id === driverId ? { ...d, status: newStatus } : d));
+            alert("Status updated successfully");
+            if (selectedDriver?.user_id === driverId) {
+                setSelectedDriver(prev => prev ? { ...prev, status: newStatus } : null);
+            }
+        } else {
+            const errorText = await response.text();
+            console.error("Update failed with status:", response.status, errorText);
+            alert(`Failed to update status: ${response.status} ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error("Network error updating status:", error);
+        alert("Network error: Check console for details. Is the backend running?");
+    }
+  };
 
   return (
     <>
@@ -15,37 +98,68 @@ const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
       />
 
       {/* DRIVER DETAIL MODAL */}
-         <Modal isOpen={!!selectedDriver} onClose={() => setSelectedDriver(null)} title={selectedDriver?.name || "Driver Details"}>
-        
-        <div className="space-y-3 mt-2">
-            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
-                <span className="font-semibold text-gray-500">Phone:</span>
-                <span className="text-gray-900 dark:text-white">{selectedDriver?.phone}</span>
+      <Modal isOpen={!!selectedDriver} onClose={() => setSelectedDriver(null)} title={selectedDriver?.share_username || "Driver Details"}>
+        <div className="space-y-4 mt-2">
+            <div className="flex items-center gap-4 border-b pb-4 border-gray-100 dark:border-gray-700">
+                {selectedDriver?.profile_image ? (
+                    <img 
+                        src={selectedDriver.profile_image} 
+                        alt="Profile" 
+                        className="w-16 h-16 rounded-full object-cover" 
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${selectedDriver?.share_username}&background=random`;
+                        }}
+                    />
+                ) : (
+                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-xl font-bold text-gray-500">
+                        {selectedDriver?.share_username?.charAt(0)}
+                    </div>
+                )}
+                <div>
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">{selectedDriver?.share_username}</h3>
+                    <p className="text-sm text-gray-500">{selectedDriver?.user_id}</p>
+                </div>
             </div>
 
-            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
-                <span className="font-semibold text-gray-500">Vehicle:</span>
-                <span className="text-gray-900 dark:text-white">{selectedDriver?.vehicle?.model}</span>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <span className="block text-xs font-semibold text-gray-500 uppercase">Status</span>
+                    <span className={`inline-block mt-1 px-2 py-1 rounded text-xs font-bold ${
+                        selectedDriver?.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                        {selectedDriver?.status}
+                    </span>
+                </div>
+                <div>
+                    <span className="block text-xs font-semibold text-gray-500 uppercase">Earnings</span>
+                    <span className="block mt-1 font-mono text-gray-900 dark:text-white">ETB {selectedDriver?.earnings}</span>
+                </div>
             </div>
 
-            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
-                <span className="font-semibold text-gray-500">Plate:</span>
-                <span className="text-gray-900 dark:text-white">{selectedDriver?.vehicle?.plate}</span>
-            </div>
-
-            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
-                <span className="font-semibold text-gray-500">Status:</span>
-                <span className={`px-2 py-0.5 rounded text-xs ${
-                    selectedDriver?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                }`}>
-                    {selectedDriver?.status}
-                </span>
-            </div>
-
-            <div className="flex justify-between border-b pb-2 border-gray-100 dark:border-gray-700">
-                <span className="font-semibold text-gray-500">Earnings:</span>
-                <span className="text-brand-500 font-bold">ETB {selectedDriver?.earnings}</span>
-            </div>
+            {/* Admin Actions in Modal */}
+            {canManageDrivers && (
+                <div className="border-t pt-4 mt-2 border-gray-100 dark:border-gray-700">
+                    <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Admin Actions</h4>
+                    <div className="flex gap-2">
+                        {selectedDriver?.status !== 'suspended' && (
+                            <button 
+                                onClick={() => handleStatusChange(selectedDriver!.user_id, 'suspended')}
+                                className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-sm font-medium transition"
+                            >
+                                Suspend Driver
+                            </button>
+                        )}
+                        {selectedDriver?.status === 'suspended' && (
+                            <button 
+                                onClick={() => handleStatusChange(selectedDriver!.user_id, 'available')}
+                                className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded text-sm font-medium transition"
+                            >
+                                Reactivate
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
       </Modal>
 
@@ -61,14 +175,16 @@ const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Search license, name..."
+              placeholder="Search driver..."
               className="rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm outline-none focus:border-brand-500 dark:border-gray-700 dark:text-white"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <button className="rounded-lg bg-brand-500 px-6 py-2 text-sm font-medium text-white hover:bg-brand-600">
-              Add Driver
-            </button>
+            {canManageDrivers && (
+                <button className="rounded-lg bg-brand-500 px-6 py-2 text-sm font-medium text-white hover:bg-brand-600 shadow-sm transition-all hover:shadow-md">
+                + Add Driver
+                </button>
+            )}
           </div>
         </div>
 
@@ -76,84 +192,92 @@ const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900/50">
-                <th className="p-4 text-xs font-medium uppercase text-gray-500">Details</th>
-                <th className="p-4 text-xs font-medium uppercase text-gray-500">Vehicle</th>
-                <th className="p-4 text-xs font-medium uppercase text-gray-500">Status</th>
-                <th className="p-4 text-xs font-medium uppercase text-gray-500">Earnings</th>
-                <th className="p-4 text-xs font-medium uppercase text-gray-500">Actions</th>
+              <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800">
+                <th className="p-4 text-xs font-semibold uppercase text-gray-500 tracking-wide">Driver</th>
+                <th className="p-4 text-xs font-semibold uppercase text-gray-500 tracking-wide">Vehicle</th>
+                <th className="p-4 text-xs font-semibold uppercase text-gray-500 tracking-wide">Status</th>
+                <th className="p-4 text-xs font-semibold uppercase text-gray-500 tracking-wide">Earnings</th>
+                <th className="p-4 text-xs font-semibold uppercase text-gray-500 tracking-wide text-right">Actions</th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-              {drivers
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {isLoading ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">Loading fleet data...</td></tr>
+              ) : drivers
                 .filter((d) =>
-                  d.name.toLowerCase().includes(searchTerm.toLowerCase())
+                  (d.share_username || "").toLowerCase().includes(searchTerm.toLowerCase())
                 )
                 .map((driver) => (
                   <tr
-                    key={driver.id}
-                    className="hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer"
+                    key={driver.user_id}
+                    className="group hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
                     onClick={() => setSelectedDriver(driver)}
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-lg">
-                          👨‍✈️
-                        </div>
+                        {driver.profile_image ? (
+                            <img 
+                                src={driver.profile_image} 
+                                alt="" 
+                                className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-700" 
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${driver.share_username}&background=random`;
+                                }}
+                            />
+                        ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-lg">
+                            👨‍✈️
+                            </div>
+                        )}
                         <div>
-                          <h5 className="font-medium text-gray-900 dark:text-white">
-                            {driver.name}
+                          <h5 className="font-semibold text-gray-900 dark:text-white text-sm">
+                            {driver.share_username}
                           </h5>
-                          <p className="text-xs text-gray-500">{driver.phone}</p>
+                          <p className="text-xs text-gray-500">{driver.phone_number}</p>
                         </div>
                       </div>
                     </td>
 
                     <td className="p-4">
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        {driver.vehicle.model}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {driver.vehicle.plate} • {driver.vehicle.color}
-                      </p>
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {/* Adapt based on your actual vehicle JSON structure */}
+                        {typeof driver.vehicle_details === 'string' ? 'Vehicle Info' : driver.vehicle_details?.model || "Unknown Model"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {typeof driver.vehicle_details === 'string' ? '' : driver.vehicle_details?.plate_number || "No Plate"}
+                      </div>
                     </td>
 
                     <td className="p-4">
                       <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                          driver.status === "active"
-                            ? "bg-green-100 text-green-700"
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                          driver.status === "available"
+                            ? "bg-green-50 text-green-700 border-green-200"
                             : driver.status === "suspended"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-yellow-100 text-yellow-700"
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-yellow-50 text-yellow-700 border-yellow-200"
                         }`}
                       >
+                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                             driver.status === "available" ? "bg-green-500" : driver.status === "suspended" ? "bg-red-500" : "bg-yellow-500"
+                        }`}></span>
                         {driver.status}
                       </span>
                     </td>
 
-                    <td className="p-4">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        ETB {driver.earnings}
-                      </p>
-                      <p className="text-xs text-gray-500">Commission: 10%</p>
+                    <td className="p-4 font-mono text-sm text-gray-600 dark:text-gray-300">
+                       ETB {driver.earnings}
                     </td>
 
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <button className="text-xs text-brand-500 hover:underline">
-                          Edit
-                        </button>
-                        <button className="text-xs text-red-500 hover:underline">
-                          Suspend
-                        </button>
-                      </div>
+                    <td className="p-4 text-right">
+                      <button className="text-gray-400 hover:text-brand-500 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
                     </td>
                   </tr>
                 ))}
             </tbody>
-
           </table>
         </div>
       </div>

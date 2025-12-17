@@ -3,38 +3,43 @@ import AppLayout from "./layout/AppLayout";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
-import Home from "./pages/Dashboard/Home"; // Updated Home
-import Drivers from "./pages/Drivers/Drivers"; // New
-import Rides from "./pages/Rides/Rides"; // New
+import Home from "./pages/Dashboard/Home"; 
+import Drivers from "./pages/Drivers/Drivers"; 
 import Pricing from "./pages/Settings/Pricing"; 
-// Import other pages as you build them
+import Rides from "./pages/Rides/Rides"; 
+import Riders from "./pages/Riders/Riders"; 
+import Financials from "./pages/Financials/Financials"; 
+import AdminLogs from "./pages/Logs/AdminLogs";
+import AdminSelector from "./components/Auth/AdminSelector"; 
 
 export default function App() {
   return (
-    <Routes>
-      {/* Auth Layout */}
-      <Route path="/signin" element={<SignIn />} />
-      <Route path="/signup" element={<SignUp />} />
+    <>
+      <AdminSelector /> 
+      
+      <Routes>
+        {/* Auth Layout */}
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
 
-      {/* Main App Layout */}
-   <Route element={<AppLayout />}>
-  <Route index element={<Home />} />
+        {/* Main App Layout */}
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Home />} />
+          
+          {/* Core Business Pages */}
+          <Route path="/drivers" element={<Drivers />} />
+          <Route path="/rides" element={<Rides />} />
+          <Route path="/logs" element={<AdminLogs />} /> 
+          
+          {/* Placeholders */}
+          <Route path="/riders" element={<Riders />} /> 
+          <Route path="/financials" element={<Financials />} />
+          <Route path="/settings" element={<Pricing />} />
 
-  {/* Main */}
-  <Route path="drivers" element={<Drivers />} />
-  <Route path="drivers/:id" element={<Drivers />} />
-
-  <Route path="rides" element={<Rides />} />
-  <Route path="rides/:id" element={<Rides />} />
-
-  {/* Secondary */}
-  <Route path="riders" element={<Rides />} />
-  <Route path="financials" element={<Rides />} />
-  <Route path="settings" element={<Pricing />} />
-
-        {/* Fallback */}
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
