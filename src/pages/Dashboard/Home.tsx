@@ -98,43 +98,53 @@ const ActivityLog = ({ logs }: { logs: any[] }) => {
   );
 };
 
-export default function Home() {
-  const [loading, setLoading] = useState(true);
-  const [dashboard, setDashboard] = useState<any>(null);
-  const [recentLogs, setRecentLogs] = useState<any[]>([]); // State for logs
-  const [chartRange, setChartRange] = useState<'weekly' | 'monthly'>('weekly');
-  
-  const isMapLoading = useFleetStore(state => state.isLoading);
-  
-  // Auth & Permissions
-  const { currentAdmin, hasPermission, logout } = useAdminStore();
-  const canUpdateRides = hasPermission('ADMIN');
+useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // DEFINE HEADERS ONCE
+                // These must match what we allowed in server.js
+                const requestHeaders = {
+                    'X-Admin-Id': 'muse_mulatu', // Use actual ID or currentAdmin?.id
+                    'X-Admin-Role': 'super_admin' // Use actual Role
+                    // CRITICAL: DO NOT ADD 'Content-Type': 'application/json' HERE for GET requests
+                };
 
-  useEffect(() => {
-    // Parallel fetch for dashboard and logs
-    const fetchData = async () => {
-        try {
-            const dashRes = await fetch(`https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`);
-            const dashData = await dashRes.json();
-            setDashboard(dashData);
+                // 1. Fetch Dashboard Overview (Was missing headers in your code!)
+                const dashRes = await fetch(`https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`, {
+                    method: 'GET',
+                    headers: requestHeaders // <--- ADDED THIS
+                });
 
-            // Fetch Logs
-            const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
-                headers: { 'X-Admin-Role': currentAdmin?.role || 'READ_ONLY' }
-            });
-            const logsData = await logsRes.json();
-            // Take only top 5 for the dashboard widget
-            setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 10) : []);
+                if (!dashRes.ok) {
+                    throw new Error(`Dashboard fetch failed: ${dashRes.status}`);
+                }
+                const dashData = await dashRes.json();
+                setDashboard(dashData);
 
-            setLoading(false);
-        } catch (err) {
-            console.error("Dashboard data load error:", err);
-            setLoading(false);
-        }
-    };
+                // 2. Fetch Logs
+                const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
+                    method: 'GET',
+                    headers: requestHeaders // <--- Used same headers
+                });
 
-    fetchData();
-  }, [currentAdmin]);
+                if (!logsRes.ok) {
+                    // Don't crash entire dashboard if logs fail, just log it
+                    console.warn(`Logs fetch failed: ${logsRes.status}`);
+                    setRecentLogs([]);
+                } else {
+                    const logsData = await logsRes.json();
+                    setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 5) : []);
+                }
+
+                setLoading(false);
+            } catch (err) {
+                console.error("Dashboard data load error:", err);
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [currentAdmin]);
 
   const handleAssignDriver = async (rideId: string) => {
       if (!confirm(`Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`)) return;
