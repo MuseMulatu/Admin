@@ -107,7 +107,9 @@ export default function Home() {
     
     // Auth & Permissions
    const { currentAdmin, hasPermission } = useAdminStore();
-  const canUpdateRides = hasPermission?.("UPDATE_RIDES") ?? false;
+  const canUpdateRides =
+  hasPermission?.("ADMIN") || hasPermission?.("SUPER_ADMIN") || false;
+
 
 useEffect(() => {
   const fetchData = async () => {
