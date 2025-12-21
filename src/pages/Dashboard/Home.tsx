@@ -107,100 +107,82 @@ export default function Home() {
     
     // Auth & Permissions
     const { currentAdmin, hasPermission } = useAdminStore();
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // PREPARE HEADERS
-                // We do NOT send Content-Type for GET requests to avoid 415 errors
-                const headers = {
-                    'X-Admin-Id': currentAdmin?.id || 'muse_mulatu', // Fallback for dev
-                    'X-Admin-Role': currentAdmin?.role || 'super_admin'
-                };
-
-                // 1. Fetch Dashboard Overview
-                const dashRes = await fetch(`${API_BASE}/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`, {
-                    method: 'GET',
-                    headers: headers // <--- Added Headers
-                });
-
-                if (!dashRes.ok) throw new Error(`Dashboard fetch failed: ${dashRes.status}`);
-                const dashData = await dashRes.json();
-                setDashboard(dashData);
-
-                // 2. Fetch Logs
-                const logsRes = await fetch(`${API_BASE}/admin/logs`, {
-                    method: 'GET',
-                    headers: headers // <--- Added Headers
-                });
-
-                if (logsRes.ok) {
-                    const logsData = await logsRes.json();
-                    setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 10) : []);
-                }
-
-                setLoading(false);
-            } catch (err) {
-                console.error("Dashboard data load error:", err);
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [currentAdmin]);
-  const handleAssignDriver = async (rideId: string) => {
-      if (!confirm(`Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`)) return;
-      
-      try {
-        const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}/assign`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Headers for backend audit middleware
-            'X-Admin-Id': currentAdmin?.id || '',
-            'X-Admin-Role': currentAdmin?.role || ''
-          },
-          body: JSON.stringify({
-            assigned_by: currentAdmin?.name,
-            action: 'MANUAL_DRIVER_ASSIGNMENT',
-            timestamp: new Date().toISOString()
-          })
-        });
-
-        if (response.ok) {
-          alert("Driver assignment initiated and logged successfully.");
-          // Ideally you would re-fetch the dashboard here to show the updated status
-        } else {
-          const err = await response.json().catch(() => ({}));
-          alert(`Failed to assign driver: ${err.message || 'Unknown server error'}`);
-        }
-      } catch (error) {
-        console.error("Assignment error:", error);
-        alert("Network error connecting to operations backend.");
-      }
-  };
-
-  const handleViewDetails = async (rideId: string) => {
+useEffect(() => {
+  const fetchData = async () => {
     try {
-      const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}`, {
-        method: 'GET',
-        headers: {
-            'X-Admin-Id': currentAdmin?.id || '',
-            'X-Admin-Role': currentAdmin?.role || ''
+      // 1. Fetch Dashboard Overview (SAME ORIGIN → VERCEL)
+      const dashRes = await fetch(
+        `/api/admin/dashboard-overview?city=${encodeURIComponent("Austin, TX")}`,
+        {
+          method: "GET"
         }
+      );
+
+      if (!dashRes.ok) {
+        throw new Error(`Dashboard fetch failed: ${dashRes.status}`);
+      }
+
+      const dashData = await dashRes.json();
+      setDashboard(dashData);
+
+      // 2. Fetch Logs (SAME ORIGIN → VERCEL)
+      const logsRes = await fetch(`/api/admin/logs`, {
+        method: "GET"
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        // In a real app, this would open a Modal. For now, we alert the details.
-        alert(`Ride Details:\n----------------\nID: ${data.id}\nPassenger: ${data.passenger_name}\nPickup: ${data.origin_address}\nDropoff: ${data.destination_address}\nFare: ${data.fare}\nStatus: ${data.status}`);
-      } else {
-        alert("Could not fetch ride details.");
+      if (logsRes.ok) {
+        const logsData = await logsRes.json();
+        setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 10) : []);
       }
+
+      setLoading(false);
     } catch (err) {
-      console.error("Fetch details error:", err);
-      alert("Network error fetching details.");
+      console.error("Dashboard data load error:", err);
+      setLoading(false);
     }
+  };
+
+  fetchData();
+}, [currentAdmin]);
+const handleAssignDriver = async (rideId: string) => {
+  if (
+    !confirm(
+      `Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`
+    )
+  )
+    return;
+
+  try {
+    const response = await fetch(`/api/admin/assign-driver`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        rideId,
+        payload: {
+          assigned_by: currentAdmin?.name,
+          action: "MANUAL_DRIVER_ASSIGNMENT",
+          timestamp: new Date().toISOString()
+        }
+      })
+    });
+
+    if (response.ok) {
+      alert("Driver assignment initiated and logged successfully.");
+    } else {
+      const err = await response.json().catch(() => ({}));
+      alert(`Failed to assign driver: ${err.message || "Unknown server error"}`);
+    }
+  } catch (error) {
+    console.error("Assignment error:", error);
+    alert("Network error connecting to admin API.");
+  }
+};
+
+
+  const handleViewDetails = async (rideId: string) => {
+  
   };
 
   const chartOptions: ApexOptions = {
