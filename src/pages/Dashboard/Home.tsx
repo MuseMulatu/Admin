@@ -106,7 +106,7 @@ export default function Home() {
     const isMapLoading = useFleetStore(state => state.isLoading);
     
     // Auth & Permissions
-    const { currentAdmin, hasPermission } = useAdminStore();
+   // const { currentAdmin, hasPermission } = useAdminStore();
 useEffect(() => {
   const fetchData = async () => {
     try {
@@ -180,10 +180,9 @@ const handleAssignDriver = async (rideId: string) => {
   }
 };
 
-
-  const handleViewDetails = async (rideId: string) => {
-  
-  };
+const handleViewDetails = async (rideId: string) => {
+  alert(`Ride details requested for ID: ${rideId}`);
+};
 
   const chartOptions: ApexOptions = {
     chart: {
@@ -246,7 +245,7 @@ const handleAssignDriver = async (rideId: string) => {
         <div className="flex items-center gap-4">
            {/* Admin Identity Badge */}
            {currentAdmin && (
-               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={logout} title="Click to Switch Identity">
+               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={ } title="Click to Switch Identity">
                    <img src={currentAdmin.avatar} alt="Admin" className="w-6 h-6 rounded-full" />
                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{currentAdmin.name}</span>
                    <span className="text-[10px] uppercase font-bold text-brand-500 border border-brand-200 px-1 rounded">{currentAdmin.role.replace('_', '')}</span>
@@ -419,7 +418,7 @@ const handleAssignDriver = async (rideId: string) => {
             </td>
 
             {/* Admin Action Column */}
-            {canUpdateRides && (
+   
               <td className="px-6 py-4 text-right">
                 {!ride.driver ? (
                   <button
@@ -437,7 +436,7 @@ const handleAssignDriver = async (rideId: string) => {
                   </button>
                 )}
               </td>
-            )}
+        
           </tr>
         ))}
       </tbody>
