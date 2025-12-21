@@ -25,7 +25,7 @@ export default function Drivers() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
   // Auth & Permissions
-  const { currentAdmin, hasPermission } = useAdminStore();
+  const { hasPermission } = useAdminStore();
   const canManageDrivers = hasPermission('ADMIN');
 
   // Fetch Drivers
