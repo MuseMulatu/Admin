@@ -30,43 +30,39 @@ export default function Riders() {
   const [modalType, setModalType] = useState<'history' | 'wallet' | null>(null);
   const [walletAmount, setWalletAmount] = useState("");
 
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/admin/riders`, {
-        headers: {
-            'X-Admin-Id': currentAdmin?.id || '',
-            'X-Admin-Role': currentAdmin?.role || ''
-        }
+useEffect(() => {
+  fetch(`/api/admin/riders`)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
     })
-      .then(res => res.json())
-      .then(data => {
-          setRiders(Array.isArray(data) ? data : []);
-          setLoading(false);
-      })
-      .catch(err => {
-          console.error("Fetch riders failed", err);
-          setLoading(false);
-      });
-  }, [currentAdmin]);
+    .then(data => {
+      setRiders(Array.isArray(data) ? data : []);
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error("Fetch riders failed", err);
+      setLoading(false);
+    });
+}, [currentAdmin]);
+
 
   const handleWalletUpdate = async () => {
       if (!selectedRider || !walletAmount) return;
       if (!confirm(`Are you sure you want to add ETB ${walletAmount} to ${selectedRider.username}'s wallet?`)) return;
 
       try {
-          const response = await fetch(`${API_BASE_URL}/admin/riders/${selectedRider.id}/wallet`, {
-              method: 'PATCH',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'X-Admin-Id': currentAdmin?.id || '',
-                  'X-Admin-Role': currentAdmin?.role || ''
-              },
-              body: JSON.stringify({
-                  amount: Number(walletAmount),
-                  action: "UPDATE_WALLET_BALANCE",
-                  admin_name: currentAdmin?.name || "Admin"
-              })
-          });
-
+          const response = await fetch(`/api/admin/riders/${selectedRider.id}/wallet`, {
+  method: 'PATCH',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    amount: Number(walletAmount),
+    action: "UPDATE_WALLET_BALANCE",
+    admin_name: currentAdmin?.name || "Admin"
+  })
+});
           if (response.ok) {
               alert("Wallet updated successfully");
               // Update local state
