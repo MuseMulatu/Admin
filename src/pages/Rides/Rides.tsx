@@ -8,37 +8,40 @@ export default function Rides() {
   const { currentAdmin, hasPermission } = useAdminStore();
   const canManageRides = hasPermission('ADMIN');
 
-  useEffect(() => {
-    fetch("https://app.share-rides.com/admin/rides/active") // Assuming endpoint
-      .then(res => res.json())
-      .then(data => {
-          setRides(Array.isArray(data) ? data : []);
-          setLoading(false);
-      })
-      .catch(err => {
-          console.error("Fetch rides failed", err);
-          setLoading(false);
-      });
-  }, []);
+useEffect(() => {
+  fetch(`/api/admin/rides/active`)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      setRides(Array.isArray(data) ? data : []);
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error("Fetch rides failed", err);
+      setLoading(false);
+    });
+}, []);
+
 
   const handleForceCancel = async (rideId: string) => {
       const reason = prompt("Enter reason for forced cancellation (Required for audit log):");
       if (!reason) return;
 
       try {
-        const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}/cancel`, {
-            method: 'POST', // or PATCH
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Admin-Id': currentAdmin?.id || '',
-                'X-Admin-Role': currentAdmin?.role || ''
-            },
-            body: JSON.stringify({
-                reason: reason,
-                action: "FORCE_CANCEL_RIDE",
-                admin_name: currentAdmin?.name
-            })
-        });
+        const response = await fetch(`/api/admin/rides/${rideId}/cancel`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    reason,
+    action: "FORCE_CANCEL_RIDE",
+    admin_name: currentAdmin?.name
+  })
+});
+
 
         if (response.ok) {
             setRides(prev => prev.filter(r => r.id !== rideId)); // Remove from list
