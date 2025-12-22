@@ -40,20 +40,28 @@ export const useFleetStore = create<FleetState>((set, get) => ({
       const data = await response.json();
 
       // ensure data is an array before setting
-      if (Array.isArray(data)) {
-        set({ 
-          drivers: data, 
-          isLoading: false, 
-          lastUpdated: Date.now() 
-        });
-      } else {
-        console.warn("Unexpected API response format:", data);
-        set({ 
-          drivers: [], 
-          isLoading: false, 
-          error: "Invalid data format received from server" 
-        });
-      }
+     if (Array.isArray(data)) {
+  const normalized = data
+    .filter(d => d.lat != null && d.lng != null)
+    .map(d => ({
+      ...d,
+      lat: Number(d.lat),
+      lng: Number(d.lng)
+    }));
+
+  set({
+    drivers: normalized,
+    isLoading: false,
+    lastUpdated: Date.now()
+  });
+} else {
+  console.warn("Unexpected API response format:", data);
+  set({
+    drivers: [],
+    isLoading: false,
+    error: "Invalid data format received from server"
+  });
+}
 
     } catch (err: any) {
       console.error("Fleet store fetch error:", err);
