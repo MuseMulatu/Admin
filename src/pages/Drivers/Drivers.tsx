@@ -5,6 +5,7 @@ import { useAdminStore } from "../../store/useAdminStore"; // Import Auth Store
 
 // Define Driver Interface
 interface Driver {
+  id: string;
   user_id: string;
   share_username: string; 
   phone_number: string; 
@@ -24,7 +25,7 @@ export default function Drivers() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
   // Auth & Permissions
-  const { currentAdmin, hasPermission } = useAdminStore();
+  const { hasPermission } = useAdminStore();
   const canManageDrivers = hasPermission('ADMIN');
 
   // Fetch Drivers
