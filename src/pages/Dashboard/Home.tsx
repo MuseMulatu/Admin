@@ -157,45 +157,56 @@ setDashboard(dashData);
 
   fetchData();
 }, [currentAdmin]);
+
 const handleAssignDriver = async (rideId: string) => {
-  if (
-    !confirm(
-      `Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`
-    )
-  )
-    return;
+  if (!confirm(`Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`)) return;
 
   try {
-    const response = await fetch(`/api/admin/assign-driver`, {
-      method: "POST",
+    const response = await fetch(`/api/admin/rides/${rideId}/assign`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        rideId,
-        payload: {
-          assigned_by: currentAdmin?.name,
-          action: "MANUAL_DRIVER_ASSIGNMENT",
-          timestamp: new Date().toISOString()
-        }
+        assigned_by: currentAdmin?.name,
+        action: 'MANUAL_DRIVER_ASSIGNMENT',
+        timestamp: new Date().toISOString()
       })
     });
 
     if (response.ok) {
       alert("Driver assignment initiated and logged successfully.");
+      // Optionally re-fetch dashboard or rides list here
     } else {
       const err = await response.json().catch(() => ({}));
-      alert(`Failed to assign driver: ${err.message || "Unknown server error"}`);
+      alert(`Failed to assign driver: ${err.message || 'Unknown server error'}`);
     }
   } catch (error) {
     console.error("Assignment error:", error);
-    alert("Network error connecting to admin API.");
+    alert("Network error connecting to operations backend.");
   }
 };
 
+
 const handleViewDetails = async (rideId: string) => {
-  alert(`Ride details requested for ID: ${rideId}`);
+  try {
+    const response = await fetch(`/api/admin/rides/${rideId}`, {
+      method: 'GET'
+      // No headers needed; _proxy or route adds X-Admin-Id and X-Admin-Role
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      alert(`Ride Details:\n----------------\nID: ${data.id}\nPassenger: ${data.passenger_name}\nPickup: ${data.origin_address}\nDropoff: ${data.destination_address}\nFare: ${data.fare}\nStatus: ${data.status}`);
+    } else {
+      alert("Could not fetch ride details.");
+    }
+  } catch (err) {
+    console.error("Fetch details error:", err);
+    alert("Network error fetching details.");
+  }
 };
+
 
   const chartOptions: ApexOptions = {
     chart: {
