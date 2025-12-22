@@ -31,7 +31,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const response = await fetch(`https://app.share-rides.com/admin/drivers/live?city=${encodeURIComponent(city)}`);
+      const response = await fetch(`/api/admin/live-fleet?city=${encodeURIComponent(city)}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch live fleet data');
