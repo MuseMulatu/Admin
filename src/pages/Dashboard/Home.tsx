@@ -106,7 +106,7 @@ export default function Home() {
     const isMapLoading = useFleetStore(state => state.isLoading);
     
     // Auth & Permissions
-   const { currentAdmin, hasPermission } = useAdminStore();
+  const { currentAdmin, hasPermission, logout } = useAdminStore();
   const canUpdateRides =
   hasPermission?.("ADMIN") || hasPermission?.("SUPER_ADMIN") || false;
 
@@ -126,9 +126,18 @@ useEffect(() => {
         throw new Error(`Dashboard fetch failed: ${dashRes.status}`);
       }
 
-      const dashData = await dashRes.json();
-      setDashboard(dashData);
+     const rawText = await dashRes.text();
+console.log("Dashboard raw response:", rawText);
 
+let dashData;
+try {
+  dashData = JSON.parse(rawText);
+} catch (e) {
+  console.error("Dashboard response is NOT JSON:", rawText);
+  throw e;
+}
+
+setDashboard(dashData);
       // 2. Fetch Logs (SAME ORIGIN → VERCEL)
       const logsRes = await fetch(`/api/admin/logs`, {
         method: "GET"
@@ -423,7 +432,7 @@ const handleViewDetails = async (rideId: string) => {
             </td>
 
             {/* Admin Action Column */}
-   
+               {canUpdateRides && (
               <td className="px-6 py-4 text-right">
                 {!ride.driver ? (
                   <button
@@ -441,7 +450,7 @@ const handleViewDetails = async (rideId: string) => {
                   </button>
                 )}
               </td>
-        
+            )}
           </tr>
         ))}
       </tbody>
