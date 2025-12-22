@@ -10,13 +10,14 @@ export async function proxyRequest(
   try {
     const url = `${BACKEND_BASE}${backendPath}`;
 
+    // Always use trusted admin credentials, like dashboard-overview/logs
     const backendRes = await fetch(url, {
       method: req.method,
       headers: {
         "Content-Type": "application/json",
-        // 🔐 inject trusted admin identity here
-        "X-Admin-Id": req.headers["x-admin-id"] as string || "muse_mulatu",
-        "X-Admin-Role": req.headers["x-admin-role"] as string || "ADMIN",
+        "Accept": "application/json",
+        "X-Admin-Id": "vercel_admin",
+        "X-Admin-Role": "super_admin",
       },
       body:
         req.method === "GET" || req.method === "HEAD"
@@ -26,15 +27,21 @@ export async function proxyRequest(
 
     const text = await backendRes.text();
 
+    // Log upstream errors for debugging
+    if (!backendRes.ok) {
+      console.error(`[PROXY ERROR] ${req.method} ${backendPath} -> ${backendRes.status}:`, text);
+    }
+
     res.status(backendRes.status);
 
+    // Try parsing JSON, fallback to raw text
     try {
       res.json(JSON.parse(text));
     } catch {
       res.send(text);
     }
   } catch (error) {
-    console.error("Proxy error:", error);
+    console.error("[PROXY EXCEPTION]", error);
     res.status(500).json({ error: "Proxy request failed" });
   }
 }
