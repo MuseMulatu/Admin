@@ -3,9 +3,8 @@ import PageMeta from "../../components/common/PageMeta";
 import Modal from "../../components/common/Modal";
 import { useAdminStore } from "../../store/useAdminStore"; // Import Auth Store
 
-// Define Driver Interface matching your backend
+// Define Driver Interface
 interface Driver {
-  id: string; 
   user_id: string;
   share_username: string; 
   phone_number: string; 
@@ -15,7 +14,7 @@ interface Driver {
   profile_image?: string;
 }
 
-// Configuration: Switch this to http://localhost:YOUR_PORT if running locally
+// 
 const API_BASE_URL = "https://app.share-rides.com"; 
 
 export default function Drivers() {
@@ -25,43 +24,41 @@ export default function Drivers() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
   // Auth & Permissions
-  const { hasPermission } = useAdminStore();
+  const { currentAdmin, hasPermission } = useAdminStore();
   const canManageDrivers = hasPermission('ADMIN');
 
   // Fetch Drivers
-  useEffect(() => {
-    // DEBUG: Log where we are fetching from
-    console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
-
-    fetch(`${API_BASE_URL}/admin/drivers`) 
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        const adaptedData = Array.isArray(data) ? data : []; 
-        setDrivers(adaptedData);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch drivers:", err);
-        setIsLoading(false);
-      });
-  }, []);
+useEffect(() => {
+console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
+  fetch(`/api/admin/drivers`)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      setDrivers(Array.isArray(data) ? data : []);
+      setIsLoading(false);
+    })
+    .catch(err => {
+      console.error("Failed to fetch drivers:", err);
+      setIsLoading(false);
+    });
+}, []);
 
 
     const handleStatusChange = async (driverId: string, newStatus: string) => {
         try {
             // Updated to use the working "muse_mulatu" credentials
-            const response = await fetch(`${API_BASE_URL}/admin/drivers/${driverId}/status`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Admin-Id': 'muse_mulatu',
-                    'X-Admin-Role': 'ADMIN'
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
+            const response = await fetch(`/api/admin/drivers/${driverId}/status`, {
+  method: 'PATCH',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    status: newStatus,
+    action: "UPDATE_DRIVER_STATUS"
+  })
+});
 
             if (!response.ok) {
                 const errorData = await response.json();
