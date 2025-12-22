@@ -258,7 +258,7 @@ const handleViewDetails = async (rideId: string) => {
         <div className="flex items-center gap-4">
            {/* Admin Identity Badge */}
            {currentAdmin && (
-               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => {}}
+               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"  onClick={logout}
  title="Click to Switch Identity">
                    <img src={currentAdmin.avatar} alt="Admin" className="w-6 h-6 rounded-full" />
                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{currentAdmin.name}</span>
