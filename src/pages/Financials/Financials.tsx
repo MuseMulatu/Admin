@@ -9,23 +9,21 @@ export default function Financials() {
   const [loading, setLoading] = useState(true);
   const { currentAdmin } = useAdminStore();
 
-  useEffect(() => {
-    fetch("https://app.share-rides.com/admin/financials/stats", {
-        headers: {
-            'X-Admin-Id': currentAdmin?.id || '',
-            'X-Admin-Role': currentAdmin?.role || ''
-        }
+useEffect(() => {
+  fetch(`/api/admin/financials/stats`)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
     })
-      .then(res => res.json())
-      .then(data => {
-          setStats(data);
-          setLoading(false);
-      })
-      .catch(err => {
-          console.error("Fetch financials failed", err);
-          setLoading(false);
-      });
-  }, [currentAdmin]);
+    .then(data => {
+      setStats(data);
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error("Fetch financials failed", err);
+      setLoading(false);
+    });
+}, [currentAdmin]);
 
   const revenueChartOptions: ApexOptions = {
     chart: { type: 'bar', height: 350, toolbar: { show: false } },
