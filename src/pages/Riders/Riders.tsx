@@ -16,7 +16,7 @@ interface Rider {
 }
 
 // Configuration
-const API_BASE_URL = "https://app.share-rides.com";
+//const API_BASE_URL = "https://app.share-rides.com";
 
 export default function Riders() {
   const [riders, setRiders] = useState<Rider[]>([]);
