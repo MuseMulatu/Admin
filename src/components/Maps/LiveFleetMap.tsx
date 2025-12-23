@@ -17,9 +17,9 @@ export default function LiveFleetMap() {
   const canUpdate = hasPermission('ADMIN'); // Only ADMIN or SUPER_ADMIN can update
 
   useEffect(() => {
-    fetchDrivers("Austin, TX");
+    fetchDrivers();
     const interval = setInterval(() => {
-        fetchDrivers("Austin, TX");
+        fetchDrivers( );
     }, 30000);
     return () => clearInterval(interval);
   }, [fetchDrivers]);
