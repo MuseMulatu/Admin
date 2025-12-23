@@ -6,20 +6,20 @@ interface Ride {
   id: string;
   user_id: string;
   driver_id: string;
-  origin_address: string;      // Matches SQL
-  destination_address: string; // Matches SQL
+  origin_address: string;      
+  destination_address: string; 
   fare: number;
   status: string;
   type: string;
   created_at: string;
-  user_name: string;           // Matches SQL 'as user_name'
-  driver_name: string | null;  // Matches SQL 'as driver_name'
-  distance_km?: number;        // Optional (if not in SQL, might be missing)
-  time_taken?: number;         // Optional
+  user_name: string;           
+  driver_name: string | null;  
+  distance_km?: number;        
+  time_taken?: number;         
 }
 
 export default function Rides() {
-  const [rides, setRides] = useState<any[]>([]);
+  const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const { currentAdmin, hasPermission } = useAdminStore();
   const canManageRides = hasPermission('ADMIN');
@@ -28,8 +28,8 @@ export default function Rides() {
   const [auditingId, setAuditingId] = useState<string | null>(null);
   const [auditResult, setAuditResult] = useState<any>(null);
 
-  // Helper to get headers that match your Vercel Proxy requirements
-  const getAuthHeaders = () => {
+  // FIX: Explicitly type the return to satisfy TypeScript's checks
+  const getAuthHeaders = (): Record<string, string> => {
     if (!currentAdmin) return {};
     return {
       'Content-Type': 'application/json',
@@ -38,7 +38,7 @@ export default function Rides() {
     };
   };
 
-const handleAuditRide = async (ride: Ride) => {
+  const handleAuditRide = async (ride: Ride) => {
     setAuditingId(ride.id);
     setAuditResult(null);
     setAuditModalOpen(true);
@@ -52,10 +52,9 @@ const handleAuditRide = async (ride: Ride) => {
         },
         body: JSON.stringify({
           rideId: ride.id,
-          // 2. FIX: Sending correct fields to AI
           origin_address: ride.origin_address, 
           destination_address: ride.destination_address,
-          distance_km: ride.distance_km || 0, // Fallback if missing
+          distance_km: ride.distance_km || 0,
           time_taken: ride.time_taken || 0
         })
       });
@@ -72,19 +71,18 @@ const handleAuditRide = async (ride: Ride) => {
     }
   };
 
-useEffect(() => {
-    // 3. FIX: Stop the fetch if Admin isn't loaded yet
+  useEffect(() => {
     if (!currentAdmin) return;
 
     fetch(`/api/admin/rides/active`, {
-      headers: getAuthHeaders() // Sending headers just in case
+      headers: getAuthHeaders()
     })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then(data => {
-        console.log("Rides Loaded:", data); // Debug log
+        // console.log("Rides Loaded:", data);
         setRides(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -95,13 +93,11 @@ useEffect(() => {
   }, [currentAdmin]);
 
 
-const handleForceCancel = async (rideId: string) => {
+  const handleForceCancel = async (rideId: string) => {
       const reason = prompt("Enter reason for forced cancellation:");
       if (!reason || !currentAdmin) return;
 
       try {
-        // 4. FIX: Use a cleaner URL structure
-        // Ensure app.post('/admin/rides/:id/cancel') exists on backend!
         const response = await fetch(
           `/api/admin/rides/${rideId}/cancel`,
           {
@@ -119,11 +115,11 @@ const handleForceCancel = async (rideId: string) => {
             setRides(prev => prev.filter(r => r.id !== rideId));
             alert("Ride cancelled.");
         } else {
-            alert("Cancel ride.");
+            alert("Failed to cancel ride.");
         }
       } catch (error) {
           console.error("Cancel error", error);
-          alert("Network is slow, the ride will be automatically cancelled when ready. Please continue your work");
+          alert("Network error.");
       }
   };
 
@@ -179,7 +175,6 @@ const handleForceCancel = async (rideId: string) => {
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                          {/* Use correct field names from SQL */}
                           <span className="text-gray-900 dark:text-white truncate max-w-[150px]">{ride.origin_address}</span>
                       </div>
                       <div className="flex items-center gap-2">
