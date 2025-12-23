@@ -116,7 +116,7 @@ useEffect(() => {
     try {
       // 1. Fetch Dashboard Overview (SAME ORIGIN → VERCEL)
       const dashRes = await fetch(
-        `/api/admin/dashboard-overview?city=${encodeURIComponent("Austin, TX")}`,
+        `https://app.share-rides.com/admin/dashboard-overview?city=${encodeURIComponent("Austin, TX")}`,
         {
           method: "GET"
         }
@@ -139,7 +139,7 @@ try {
 
 setDashboard(dashData);
       // 2. Fetch Logs (SAME ORIGIN → VERCEL)
-      const logsRes = await fetch(`/api/admin/logs`, {
+      const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
         method: "GET"
       });
 
@@ -162,7 +162,7 @@ const handleAssignDriver = async (rideId: string) => {
   if (!confirm(`Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`)) return;
 
   try {
-    const response = await fetch(`/api/admin/rides/${rideId}/assign`, {
+    const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}/assign`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -190,7 +190,7 @@ const handleAssignDriver = async (rideId: string) => {
 
 const handleViewDetails = async (rideId: string) => {
   try {
-    const response = await fetch(`/api/admin/rides/${rideId}`, {
+    const response = await fetch(`https://app.share-rides.com/admin/rides/${rideId}`, {
       method: 'GET'
       // No headers needed; _proxy or route adds X-Admin-Id and X-Admin-Role
     });
