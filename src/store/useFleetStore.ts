@@ -31,7 +31,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const response = await fetch(`/api/admin/drivers/live?city=${encodeURIComponent(city)}`);
+      const response = await fetch(`/api/admin/drivers/live`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch live fleet data');
