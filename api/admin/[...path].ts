@@ -4,7 +4,7 @@ const BACKEND_BASE = "https://app.share-rides.com";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Robust path extraction
+    // Extract path array robustly
     let pathArray: string[] = [];
 
     if (Array.isArray(req.query.path)) {
@@ -12,42 +12,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (typeof req.query.path === "string") {
       pathArray = [req.query.path];
     } else if (req.url) {
-      // Fallback: parse from URL for direct fetches like /api/admin/rides/active
       const urlParts = req.url.split("/api/admin/")[1]?.split("/") || [];
       pathArray = urlParts.filter(Boolean);
     }
 
-    console.log("[VERCEL CATCH-ALL] Request method:", req.method);
-    console.log("[VERCEL CATCH-ALL] Request query:", req.query);
-    console.log("[VERCEL CATCH-ALL] Extracted path array:", pathArray);
-
-    if (!pathArray.length) {
-      return res.status(400).json({ error: "No path provided to proxy" });
-    }
+    // Remove query params from last segment
+    const lastSegment = pathArray[pathArray.length - 1] || "";
+    const [cleanSegment] = lastSegment.split("?");
+    pathArray[pathArray.length - 1] = cleanSegment;
 
     // Build backend path
     const backendPath = `/admin/${pathArray.join("/")}`;
-    console.log("[VERCEL CATCH-ALL] Forwarding to backend path:", backendPath);
 
-    // Prepare fetch options
-    const fetchOptions: RequestInit = {
+    // Reconstruct query string
+    const queryParams = new URLSearchParams(req.query as Record<string, string>);
+    queryParams.delete("path"); // remove the catch-all param
+    const queryString = queryParams.toString();
+    const fullUrl = queryString ? `${BACKEND_BASE}${backendPath}?${queryString}` : `${BACKEND_BASE}${backendPath}`;
+
+    console.log("[VERCEL CATCH-ALL] Request method:", req.method);
+    console.log("[VERCEL CATCH-ALL] Forwarding to backend:", fullUrl);
+
+    const backendRes = await fetch(fullUrl, {
       method: req.method,
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        // Trusted admin credentials
         "X-Admin-Id": "vercel_admin",
         "X-Admin-Role": "super_admin",
       },
-      body:
-        req.method === "GET" || req.method === "HEAD"
-          ? undefined
-          : JSON.stringify(req.body),
-    };
+      body: req.method === "GET" || req.method === "HEAD" ? undefined : JSON.stringify(req.body),
+    });
 
-    const backendRes = await fetch(`${BACKEND_BASE}${backendPath}`, fetchOptions);
     const text = await backendRes.text();
-
     console.log("[VERCEL CATCH-ALL] Backend status:", backendRes.status);
 
     res.status(backendRes.status);
