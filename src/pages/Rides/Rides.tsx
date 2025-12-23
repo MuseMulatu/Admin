@@ -8,6 +8,44 @@ export default function Rides() {
   const { currentAdmin, hasPermission } = useAdminStore();
   const canManageRides = hasPermission('ADMIN');
 
+  const [isAuditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditingId, setAuditingId] = useState<string | null>(null);
+  const [auditResult, setAuditResult] = useState<any>(null);
+
+  const handleAuditRide = async (ride: any) => {
+    setAuditingId(ride.id);
+    setAuditResult(null);
+    setAuditModalOpen(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/ai/audit-ride`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add your auth headers here if needed
+          'X-Admin-Role': 'super_admin' 
+        },
+        body: JSON.stringify({
+          rideId: ride.id,
+          origin_address: ride.origin,
+          destination_address: ride.destination,
+          distance_km: ride.distance_km,
+          time_taken: ride.time_taken
+        })
+      });
+
+      if (!response.ok) throw new Error('Audit failed');
+      
+      const data = await response.json();
+      setAuditResult(data);
+    } catch (error) {
+      console.error(error);
+      setAuditResult({ error: "Failed to connect to AI Auditor." });
+    } finally {
+      setAuditingId(null);
+    }
+  };
+
 useEffect(() => {
   fetch(`/api/admin/rides/active`)
     .then(res => {
@@ -90,6 +128,14 @@ const response = await fetch(
               ) : rides.map((ride) => (
                 <tr key={ride.id} className="group hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                   <td className="p-4 font-mono text-sm text-gray-600">{ride.id}</td>
+                  <td className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
+                    <button 
+                      onClick={() => handleAuditRide(ride)}
+                      className="inline-flex items-center justify-center gap-2.5 rounded-full bg-primary py-2 px-6 text-center font-medium text-white hover:bg-opacity-90 lg:px-4 xl:px-6"
+                    >
+                      <span>✨</span> Audit
+                    </button>
+                  </td>
                   <td className="p-4">
                     <span className={`px-2 py-1 rounded text-xs font-bold border ${
                         ride.type === 'corider' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'
@@ -134,6 +180,49 @@ const response = await fetch(
           </table>
         </div>
       </div>
+
+            {isAuditModalOpen && (
+        <div className="fixed inset-0 z-999 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 outline-none focus:outline-none">
+           <div className="relative w-full max-w-lg rounded-lg bg-white p-8 dark:bg-boxdark">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-black dark:text-white">Ride Audit Report</h3>
+                  <button onClick={() => setAuditModalOpen(false)} className="text-2xl">&times;</button>
+              </div>
+              
+              {auditingId ? (
+                  <div className="flex flex-col items-center py-8">
+                      <div className="h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
+                      <p className="mt-4 text-gray-500">Gemini is analyzing route data...</p>
+                  </div>
+              ) : auditResult ? (
+                  <div className="space-y-4">
+                      <div className={`p-4 rounded-lg border-l-4 ${auditResult.flag === 'Red' ? 'bg-red-50 border-red-500 text-red-700' : auditResult.flag === 'Yellow' ? 'bg-yellow-50 border-yellow-500 text-yellow-700' : 'bg-green-50 border-green-500 text-green-700'}`}>
+                          <strong className="block text-lg mb-1">{auditResult.flag} Flag</strong>
+                          {auditResult.summary}
+                      </div>
+                      
+                      {auditResult.comparison && (
+                        <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-meta-4 p-3 rounded">
+                            <p><strong>Analysis Data:</strong></p>
+                            <ul className="list-disc ml-5 mt-1">
+                                <li>Actual Distance: {initialRides.find(r => r.id === auditingId)?.distance_km}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
+                                <li>Actual Time: {initialRides.find(r => r.id === auditingId)?.time_taken}min vs Std: {auditResult.comparison.standardTimeMin.toFixed(1)}min</li>
+                            </ul>
+                        </div>
+                      )}
+                  </div>
+              ) : (
+                  <p className="text-red-500">Could not retrieve audit.</p>
+              )}
+              
+              <div className="mt-6 flex justify-end">
+                  <button onClick={() => setAuditModalOpen(false)} className="rounded border border-stroke py-2 px-6 font-medium text-black hover:shadow-1 dark:border-strokedark dark:text-white">
+                      Close
+                  </button>
+              </div>
+           </div>
+        </div>
+      )}
     </>
   );
 }

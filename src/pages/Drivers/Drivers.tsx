@@ -46,41 +46,47 @@ console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
     });
 }, []);
 
+const handleStatusChange = async (driverId: string, newStatus: string) => {
+    // Safety check (optional, but good practice)
+    if (!currentAdmin) {
+        alert("You must be logged in to perform this action");
+        return;
+    }
 
-    const handleStatusChange = async (driverId: string, newStatus: string) => {
-        try {
-            // Updated to use the working "muse_mulatu" credentials
-            const response = await fetch(`/api/admin/drivers/${driverId}/status`, {
-  method: 'PATCH',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    status: newStatus,
-    action: "UPDATE_DRIVER_STATUS"
-  })
-});
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to update status');
-            }
+    try {
+        const response = await fetch(`/api/admin/drivers/${driverId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                // 👇 Inject the logged-in admin's credentials here
+                'X-Admin-Id': currentAdmin.id,
+                'X-Admin-Role': currentAdmin.role, 
+            },
+            body: JSON.stringify({
+                status: newStatus,
+                action: "UPDATE_DRIVER_STATUS",
+                // 👇 Send the name for better logs in 'admin_logs' table
+                admin_name: currentAdmin.name 
+            })
+        });
 
-            const data = await response.json();
-            
-            // Update local state to reflect change immediately
-            setDrivers(drivers.map(d => 
-                d.id === driverId ? { ...d, status: newStatus } : d
-            ));
-            
-            // Optional: Show success message
-            console.log('Success:', data.message);
-
-        } catch (error) {
-            console.error('Error updating status:', error);
-            alert('Failed to update driver status');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update status');
         }
-    };
 
+        const data = await response.json();
+        
+        // Update local state...
+        setDrivers(drivers.map(d => 
+            d.user_id === driverId ? { ...d, status: newStatus } : d
+        ));
+        
+    } catch (error: any) {
+        console.error('Error updating status:', error);
+        alert(error.message);
+    }
+};
   return (
     <>
       <PageMeta

@@ -20,7 +20,7 @@ interface AdminState {
 
 export const AVAILABLE_ADMINS: AdminUser[] = [
   { id: 'muse_mulatu', name: 'Muse Mulatu', role: 'SUPER_ADMIN', avatar: 'https://ui-avatars.com/api/?name=Muse+Mulatu&background=0D8ABC&color=fff' },
-  { id: 'greg_pessoni', name: 'Greg Pessoni', role: 'ADMIN', avatar: 'https://ui-avatars.com/api/?name=Greg+Pessoni&background=F59E0B&color=fff' },
+  { id: 'greg_bessoni', name: 'Greg Bessoni', role: 'ADMIN', avatar: 'https://ui-avatars.com/api/?name=Greg+Bessoni&background=F59E0B&color=fff' },
   { id: 'paul_fidika', name: 'Paul Fidika', role: 'ADMIN', avatar: 'https://ui-avatars.com/api/?name=Paul+Fidika&background=10B981&color=fff' },
   { id: 'guest_user', name: 'Guest Observer', role: 'READ_ONLY', avatar: 'https://ui-avatars.com/api/?name=Guest&background=6B7280&color=fff' },
 ];

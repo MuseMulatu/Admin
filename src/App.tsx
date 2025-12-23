@@ -11,6 +11,7 @@ import Riders from "./pages/Riders/Riders";
 import Financials from "./pages/Financials/Financials"; 
 import AdminLogs from "./pages/AuditLogs/AdminLogs";
 import AdminSelector from "./components/auth/AdminSelector"; 
+import Tickets from './pages/Support/Tickets'
 
 export default function App() {
   return (
@@ -35,6 +36,8 @@ export default function App() {
           <Route path="/riders" element={<Riders />} /> 
           <Route path="/financials" element={<Financials />} />
           <Route path="/settings" element={<Pricing />} />
+          <Route path="/tickets" element={ < Tickets />}
+        />
 
           {/* Fallback */}
           <Route path="*" element={<NotFound />} />

@@ -19,23 +19,28 @@ export default async function handler(
     console.log("Original URL:", originalUrl);
     console.log("Forwarding to:", `/admin${backendPath}`);
 
-    const upstream = await fetch(`${BACKEND_BASE}/admin${backendPath}`, {
+    // 1. Capture credentials from the incoming Frontend request
+    // Note: Node.js headers are always lowercase
+    const adminId = req.headers['x-admin-id'] as string;
+    const adminRole = req.headers['x-admin-role'] as string;
+
+   const upstream = await fetch(`${BACKEND_BASE}/admin${backendPath}`, {
       method: req.method,
       headers: {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "X-Admin-Id": "vercel_admin",
-        "X-Admin-Role": "super_admin",
+
+        // If the header is missing, we send an empty string (Backend will return 401)
+        "X-Admin-Id": adminId || "",
+        "X-Admin-Role": adminRole || "",
       },
+      // 3. Ensure body is forwarded (contains status, admin_name, etc.)
+      body: req.body ? JSON.stringify(req.body) : undefined,
     });
 
     const text = await upstream.text();
-
-    console.log("Upstream status:", upstream.status);
-
     res.status(upstream.status);
 
-    // Safe JSON handling
     try {
       res.json(JSON.parse(text));
     } catch {
