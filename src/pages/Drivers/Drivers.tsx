@@ -80,7 +80,6 @@ console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
             alert('Failed to update driver status');
         }
     };
-// ... existing code ...
 
   return (
     <>

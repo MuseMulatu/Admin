@@ -30,17 +30,21 @@ useEffect(() => {
       if (!reason) return;
 
       try {
-        const response = await fetch(`/api/admin/rides/${rideId}/cancel`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    reason,
-    action: "FORCE_CANCEL_RIDE",
-    admin_name: currentAdmin?.name
-  })
-});
+const response = await fetch(
+  `/api/admin/action/rides/${rideId}/cancel`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      reason,
+      action: "FORCE_CANCEL_RIDE",
+      admin_name: currentAdmin?.name
+    })
+  }
+);
+
 
 
         if (response.ok) {

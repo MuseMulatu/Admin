@@ -52,17 +52,21 @@ useEffect(() => {
       if (!confirm(`Are you sure you want to add ETB ${walletAmount} to ${selectedRider.username}'s wallet?`)) return;
 
       try {
-          const response = await fetch(`/api/admin/riders/${selectedRider.id}/wallet`, {
-  method: 'PATCH',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    amount: Number(walletAmount),
-    action: "UPDATE_WALLET_BALANCE",
-    admin_name: currentAdmin?.name || "Admin"
-  })
-});
+         const response = await fetch(
+  `/api/admin/action/riders/${selectedRider.id}/wallet`,
+  {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      amount: Number(walletAmount),
+      action: "UPDATE_WALLET_BALANCE",
+      admin_name: currentAdmin?.name || "Admin"
+    })
+  }
+);
+
           if (response.ok) {
               alert("Wallet updated successfully");
               // Update local state
