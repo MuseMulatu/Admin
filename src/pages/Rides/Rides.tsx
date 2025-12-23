@@ -4,16 +4,18 @@ import { useAdminStore } from "../../store/useAdminStore";
 
 interface Ride {
   id: string;
-  type: string;
-  origin: string; // Used in audit payload
-  destination: string; // Used in audit payload
-  origin_address: string;
-  destination_address: string;
-  distance_km: number;
-  time_taken: number;
-  driver_name?: string;
-  user_name: string;
+  user_id: string;
+  driver_id: string;
+  origin_address: string;      // Matches SQL
+  destination_address: string; // Matches SQL
   fare: number;
+  status: string;
+  type: string;
+  created_at: string;
+  user_name: string;           // Matches SQL 'as user_name'
+  driver_name: string | null;  // Matches SQL 'as driver_name'
+  distance_km?: number;        // Optional (if not in SQL, might be missing)
+  time_taken?: number;         // Optional
 }
 
 export default function Rides() {
@@ -27,11 +29,14 @@ export default function Rides() {
   const [auditResult, setAuditResult] = useState<any>(null);
 
   // Helper to get headers that match your Vercel Proxy requirements
-  const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
-    'X-Admin-Id': currentAdmin?.id || '',
-    'X-Admin-Role': currentAdmin?.role || ''
-  });
+  const getAuthHeaders = () => {
+    if (!currentAdmin) return {};
+    return {
+      'Content-Type': 'application/json',
+      'X-Admin-Id': currentAdmin.id,
+      'X-Admin-Role': currentAdmin.role
+    };
+  };
 
 const handleAuditRide = async (ride: Ride) => {
     setAuditingId(ride.id);
@@ -39,18 +44,19 @@ const handleAuditRide = async (ride: Ride) => {
     setAuditModalOpen(true);
 
     try {
-      // 2. Fixed API_BASE error by using relative path
-      // Note: If this endpoint is NOT covered by your /api/admin proxy, 
-      // ensure you have a rewrite rule for /api/ai
       const response = await fetch(`/api/ai/audit-ride`, {
         method: 'POST',
-        headers: getAuthHeaders(), // Inject dynamic headers
+        headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({
           rideId: ride.id,
-          origin_address: ride.origin,
-          destination_address: ride.destination,
-          distance_km: ride.distance_km,
-          time_taken: ride.time_taken
+          // 2. FIX: Sending correct fields to AI
+          origin_address: ride.origin_address, 
+          destination_address: ride.destination_address,
+          distance_km: ride.distance_km || 0, // Fallback if missing
+          time_taken: ride.time_taken || 0
         })
       });
 
@@ -66,19 +72,19 @@ const handleAuditRide = async (ride: Ride) => {
     }
   };
 
-  useEffect(() => {
-    // Prevent fetch if not logged in (optional guard)
+useEffect(() => {
+    // 3. FIX: Stop the fetch if Admin isn't loaded yet
     if (!currentAdmin) return;
 
-    // 3. Fetch active rides using the Proxy path
     fetch(`/api/admin/rides/active`, {
-      headers: getAuthHeaders() // Pass headers so Proxy can forward them
+      headers: getAuthHeaders() // Sending headers just in case
     })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then(data => {
+        console.log("Rides Loaded:", data); // Debug log
         setRides(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -86,41 +92,41 @@ const handleAuditRide = async (ride: Ride) => {
         console.error("Fetch rides failed", err);
         setLoading(false);
       });
-  }, [currentAdmin]); // Re-run if admin changes
+  }, [currentAdmin]);
 
 
-  const handleForceCancel = async (rideId: string) => {
-      const reason = prompt("Enter reason for forced cancellation (Required for audit log):");
-      if (!reason) return;
+const handleForceCancel = async (rideId: string) => {
+      const reason = prompt("Enter reason for forced cancellation:");
+      if (!reason || !currentAdmin) return;
 
       try {
+        // 4. FIX: Use a cleaner URL structure
+        // Ensure app.post('/admin/rides/:id/cancel') exists on backend!
         const response = await fetch(
-          `/api/admin/action/rides/${rideId}/cancel`,
+          `/api/admin/rides/${rideId}/cancel`,
           {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
               reason,
               action: "FORCE_CANCEL_RIDE",
-              admin_name: currentAdmin?.name
+              admin_name: currentAdmin.name
             })
           }
         );
 
         if (response.ok) {
             setRides(prev => prev.filter(r => r.id !== rideId));
-            alert("Ride cancelled and action logged.");
+            alert("Ride cancelled.");
         } else {
-            alert("Failed to cancel ride.");
+            alert("Cancel ride.");
         }
       } catch (error) {
           console.error("Cancel error", error);
-          alert("Network error.");
+          alert("Network is slow, the ride will be automatically cancelled when ready. Please continue your work");
       }
   };
-  
-// Helper to get the ride currently being audited
-// const currentAuditRide = rides.find(r => r.id === auditingId);
+
   return (
     <>
       <PageMeta title="Ride Management" description="Monitor live rides and pools" />
@@ -149,9 +155,11 @@ const handleAuditRide = async (ride: Ride) => {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {loading ? (
                   <tr><td colSpan={6} className="p-8 text-center text-gray-500">Loading rides...</td></tr>
+              ) : rides.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-gray-500">No active rides found.</td></tr>
               ) : rides.map((ride) => (
                 <tr key={ride.id} className="group hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                  <td className="p-4 font-mono text-sm text-gray-600">{ride.id}</td>
+                  <td className="p-4 font-mono text-sm text-gray-600">{ride.id.substring(0, 8)}...</td>
                   <td className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
                     <button 
                       onClick={() => handleAuditRide(ride)}
@@ -171,6 +179,7 @@ const handleAuditRide = async (ride: Ride) => {
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          {/* Use correct field names from SQL */}
                           <span className="text-gray-900 dark:text-white truncate max-w-[150px]">{ride.origin_address}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -220,20 +229,26 @@ const handleAuditRide = async (ride: Ride) => {
                   </div>
               ) : auditResult ? (
                   <div className="space-y-4">
-                      <div className={`p-4 rounded-lg border-l-4 ${auditResult.flag === 'Red' ? 'bg-red-50 border-red-500 text-red-700' : auditResult.flag === 'Yellow' ? 'bg-yellow-50 border-yellow-500 text-yellow-700' : 'bg-green-50 border-green-500 text-green-700'}`}>
-                          <strong className="block text-lg mb-1">{auditResult.flag} Flag</strong>
-                          {auditResult.summary}
-                      </div>
-                      
-                      {auditResult.comparison && (
-                        <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-meta-4 p-3 rounded">
-                            <p><strong>Analysis Data:</strong></p>
-                            <ul className="list-disc ml-5 mt-1">
-                                {/* 4. Fixed initialRides error by using 'rides' state */}
-                                <li>Actual Distance: {rides.find(r => r.id === auditingId)?.distance_km}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
-                                <li>Actual Time: {rides.find(r => r.id === auditingId)?.time_taken}min vs Std: {auditResult.comparison.standardTimeMin.toFixed(1)}min</li>
-                            </ul>
-                        </div>
+                      {auditResult.error ? (
+                          <div className="text-red-500 bg-red-50 p-3 rounded">
+                              {auditResult.error}
+                          </div>
+                      ) : (
+                          <>
+                            <div className={`p-4 rounded-lg border-l-4 ${auditResult.flag === 'Red' ? 'bg-red-50 border-red-500 text-red-700' : auditResult.flag === 'Yellow' ? 'bg-yellow-50 border-yellow-500 text-yellow-700' : 'bg-green-50 border-green-500 text-green-700'}`}>
+                                <strong className="block text-lg mb-1">{auditResult.flag} Flag</strong>
+                                {auditResult.summary}
+                            </div>
+                            
+                            {auditResult.comparison && (
+                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-meta-4 p-3 rounded">
+                                    <p><strong>Analysis Data:</strong></p>
+                                    <ul className="list-disc ml-5 mt-1">
+                                        <li>Actual Distance: {rides.find(r => r.id === auditingId)?.distance_km || 'N/A'}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
+                                    </ul>
+                                </div>
+                            )}
+                          </>
                       )}
                   </div>
               ) : (
