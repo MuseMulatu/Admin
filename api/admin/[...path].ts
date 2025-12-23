@@ -7,38 +7,42 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
-    // Example incoming:
-    // /api/admin/rides/active?city=Austin, TX
     const originalUrl = req.url || "";
-
-    // Strip "/api/admin"
     const backendPath = originalUrl.replace(/^\/api\/admin/, "");
 
-    console.log("[VERCEL READ PROXY]");
-    console.log("Method:", req.method);
-    console.log("Original URL:", originalUrl);
-    console.log("Forwarding to:", `/admin${backendPath}`);
+    // 1. Capture credentials safely
+    const incomingId = req.headers['x-admin-id'] as string;
+    const incomingRole = req.headers['x-admin-role'] as string;
 
-    // 1. Capture credentials from the incoming Frontend request
-    // Note: Node.js headers are always lowercase
-    const adminId = req.headers['x-admin-id'] as string;
-    const adminRole = req.headers['x-admin-role'] as string;
+    // 2. FORCE UPPERCASE implementation
+    // This fixes the mismatch if "super_admin" comes in lowercase
+    const finalRole = (incomingRole || "").toUpperCase();
 
-   const upstream = await fetch(`${BACKEND_BASE}/admin${backendPath}`, {
+    // 3. DEBUG LOGS (Check these in Vercel if it still fails!)
+    console.log("[PROXY DEBUG]");
+    console.log("Incoming Role:", incomingRole);
+    console.log("Forwarding Role:", finalRole);
+    console.log("Forwarding ID:", incomingId);
+
+    const upstream = await fetch(`${BACKEND_BASE}/admin${backendPath}`, {
       method: req.method,
       headers: {
         "Accept": "application/json",
         "Content-Type": "application/json",
-
-        // If the header is missing, we send an empty string (Backend will return 401)
-        "X-Admin-Id": adminId || "",
-        "X-Admin-Role": adminRole || "",
+        "X-Admin-Id": incomingId || "", 
+        "X-Admin-Role": finalRole, // <--- Sending the corrected uppercase role
       },
-      // 3. Ensure body is forwarded (contains status, admin_name, etc.)
+      // Forward the body
       body: req.body ? JSON.stringify(req.body) : undefined,
     });
 
     const text = await upstream.text();
+    
+    // Log upstream errors for visibility
+    if (!upstream.ok) {
+       console.error(`Upstream Error ${upstream.status}:`, text);
+    }
+
     res.status(upstream.status);
 
     try {
