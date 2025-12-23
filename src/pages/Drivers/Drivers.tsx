@@ -60,7 +60,6 @@ console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
     action: "UPDATE_DRIVER_STATUS"
   })
 });
-
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to update status');
