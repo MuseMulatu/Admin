@@ -138,6 +138,7 @@ try {
 }
 
 setDashboard(dashData);
+if (!currentAdmin) return;
       // 2. Fetch Logs (SAME ORIGIN → VERCEL)
       const logsRes = await fetch(`/api/admin/logs`, {
         method: "GET"

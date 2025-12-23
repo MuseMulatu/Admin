@@ -15,14 +15,19 @@ export default async function handler(
     const incomingRole = req.headers['x-admin-role'] as string;
 
     // 2. FORCE UPPERCASE implementation
-    // This fixes the mismatch if "super_admin" comes in lowercase
     const finalRole = (incomingRole || "").toUpperCase();
 
-    // 3. DEBUG LOGS (Check these in Vercel if it still fails!)
-    console.log("[PROXY DEBUG]");
-    console.log("Incoming Role:", incomingRole);
-    console.log("Forwarding Role:", finalRole);
+    // 3. DEBUG LOGS
+    console.log(`[PROXY] ${req.method} ${originalUrl}`);
     console.log("Forwarding ID:", incomingId);
+    console.log("Forwarding Role:", finalRole);
+
+    // 4. FIX: STRICTLY FORBID BODY FOR GET/HEAD REQUESTS
+    // This resolves "TypeError: Request with GET/HEAD method cannot have body"
+    const isReadRequest = req.method === 'GET' || req.method === 'HEAD';
+    
+    // Only stringify the body if it's NOT a read request AND body exists
+    const body = (isReadRequest || !req.body) ? undefined : JSON.stringify(req.body);
 
     const upstream = await fetch(`${BACKEND_BASE}/admin${backendPath}`, {
       method: req.method,
@@ -30,10 +35,10 @@ export default async function handler(
         "Accept": "application/json",
         "Content-Type": "application/json",
         "X-Admin-Id": incomingId || "", 
-        "X-Admin-Role": finalRole, // <--- Sending the corrected uppercase role
+        "X-Admin-Role": finalRole,
       },
-      // Forward the body
-      body: req.body ? JSON.stringify(req.body) : undefined,
+      // Use the safe body variable we created above
+      body: body,
     });
 
     const text = await upstream.text();
