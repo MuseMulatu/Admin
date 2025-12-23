@@ -15,8 +15,6 @@ interface Driver {
   profile_image?: string;
 }
 
-// 
-const API_BASE_URL = "https://app.share-rides.com"; 
 
 export default function Drivers() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +28,7 @@ const { hasPermission, currentAdmin } = useAdminStore();
 
   // Fetch Drivers
 useEffect(() => {
-console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
+//console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
   fetch(`/api/admin/drivers`)
     .then(res => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -93,7 +91,8 @@ const handleStatusChange = async (driverId: string, newStatus: string) => {
         
         alert(`Failed to update status: ${error.message}`);
     }
-};eturn (
+};
+return (
     <>
       <PageMeta
         title="Driver Management"

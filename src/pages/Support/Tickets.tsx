@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Breadcrumb from '../../components/common/PageBreadCrumb';
+import { useAdminStore } from "../../store/useAdminStore"; 
 
 // Mock Data
 const mockTickets = [
@@ -7,27 +8,37 @@ const mockTickets = [
     { id: 'T-102', user: 'Almaz', issue: 'I lost my scarf in the car.', status: 'OPEN', rideId: 'ride_005' },
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://app.share-rides.com';
-
 const Tickets = () => {
     const [selectedTicket, setSelectedTicket] = useState<any>(null);
     const [replyText, setReplyText] = useState('');
     const [isDrafting, setIsDrafting] = useState(false);
+    
+    // 1. Get current admin to send credentials to the Proxy
+    const { currentAdmin } = useAdminStore();
 
     const handleAutoDraft = async (ticket: any) => {
         setIsDrafting(true);
-        setReplyText(''); // Clear previous
+        setReplyText(''); 
         
         try {
-            const response = await fetch(`${API_BASE}/api/ai/draft-response`, {
+            // 2. Use relative path to hit the Vercel Proxy
+            const response = await fetch(`/api/ai/draft-response`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    // 3. Inject headers so the proxy forwards them to the backend
+                    'X-Admin-Id': currentAdmin?.id || '',
+                    'X-Admin-Role': currentAdmin?.role || ''
+                },
                 body: JSON.stringify({
                     ticketId: ticket.id,
                     complaintText: ticket.issue,
-                    rideDetails: { id: ticket.rideId, driver: "Unknown" } // Pass actual ride details here
+                    rideDetails: { id: ticket.rideId, driver: "Unknown" } 
                 })
             });
+            
+            if (!response.ok) throw new Error("Failed to fetch draft");
+
             const data = await response.json();
             setReplyText(data.ai_drafted_response || "AI could not generate a response.");
         } catch (err) {
@@ -40,7 +51,8 @@ const Tickets = () => {
 
     return (
         <>
-            <Breadcrumb pageName="Support Tickets" />
+            {/* FIX: Changed 'pageName' to 'pageTitle' to match your component interface */}
+            <Breadcrumb pageTitle="Support Tickets" />
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {/* List Column */}

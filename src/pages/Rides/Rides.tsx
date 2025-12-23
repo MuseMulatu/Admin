@@ -4,17 +4,16 @@ import { useAdminStore } from "../../store/useAdminStore";
 
 interface Ride {
   id: string;
-  type: 'corider' | 'solo' | string;
-  origin: string; // Used for audit
-  origin_address: string; // Used for display
-  destination: string;
+  type: string;
+  origin: string; // Used in audit payload
+  destination: string; // Used in audit payload
+  origin_address: string;
   destination_address: string;
   distance_km: number;
-  time_taken: number; // in minutes
-  fare: number;
+  time_taken: number;
   driver_name?: string;
-  user_name?: string;
-  status: string;
+  user_name: string;
+  fare: number;
 }
 
 export default function Rides() {
@@ -27,19 +26,25 @@ export default function Rides() {
   const [auditingId, setAuditingId] = useState<string | null>(null);
   const [auditResult, setAuditResult] = useState<any>(null);
 
-  const handleAuditRide = async (ride: any) => {
+  // Helper to get headers that match your Vercel Proxy requirements
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-Admin-Id': currentAdmin?.id || '',
+    'X-Admin-Role': currentAdmin?.role || ''
+  });
+
+const handleAuditRide = async (ride: Ride) => {
     setAuditingId(ride.id);
     setAuditResult(null);
     setAuditModalOpen(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/ai/audit-ride`, {
+      // 2. Fixed API_BASE error by using relative path
+      // Note: If this endpoint is NOT covered by your /api/admin proxy, 
+      // ensure you have a rewrite rule for /api/ai
+      const response = await fetch(`/api/ai/audit-ride`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add your auth headers here if needed
-          'X-Admin-Role': 'super_admin' 
-        },
+        headers: getAuthHeaders(), // Inject dynamic headers
         body: JSON.stringify({
           rideId: ride.id,
           origin_address: ride.origin,
@@ -61,21 +66,27 @@ export default function Rides() {
     }
   };
 
-useEffect(() => {
-  fetch(`/api/admin/rides/active`)
-    .then(res => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
+  useEffect(() => {
+    // Prevent fetch if not logged in (optional guard)
+    if (!currentAdmin) return;
+
+    // 3. Fetch active rides using the Proxy path
+    fetch(`/api/admin/rides/active`, {
+      headers: getAuthHeaders() // Pass headers so Proxy can forward them
     })
-    .then(data => {
-      setRides(Array.isArray(data) ? data : []);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error("Fetch rides failed", err);
-      setLoading(false);
-    });
-}, []);
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        setRides(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Fetch rides failed", err);
+        setLoading(false);
+      });
+  }, [currentAdmin]); // Re-run if admin changes
 
 
   const handleForceCancel = async (rideId: string) => {
@@ -83,23 +94,21 @@ useEffect(() => {
       if (!reason) return;
 
       try {
-const response = await fetch(
-  `/api/admin/action/rides/${rideId}/cancel`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      reason,
-      action: "FORCE_CANCEL_RIDE",
-      admin_name: currentAdmin?.name
-    })
-  }
-);
+        const response = await fetch(
+          `/api/admin/action/rides/${rideId}/cancel`,
+          {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              reason,
+              action: "FORCE_CANCEL_RIDE",
+              admin_name: currentAdmin?.name
+            })
+          }
+        );
 
         if (response.ok) {
-            setRides(prev => prev.filter(r => r.id !== rideId)); // Remove from list
+            setRides(prev => prev.filter(r => r.id !== rideId));
             alert("Ride cancelled and action logged.");
         } else {
             alert("Failed to cancel ride.");
@@ -109,6 +118,7 @@ const response = await fetch(
           alert("Network error.");
       }
   };
+  
 // Helper to get the ride currently being audited
 // const currentAuditRide = rides.find(r => r.id === auditingId);
   return (
@@ -195,7 +205,7 @@ const response = await fetch(
         </div>
       </div>
 
-            {isAuditModalOpen && (
+      {isAuditModalOpen && (
         <div className="fixed inset-0 z-999 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 outline-none focus:outline-none">
            <div className="relative w-full max-w-lg rounded-lg bg-white p-8 dark:bg-boxdark">
               <div className="flex justify-between items-center mb-4">
@@ -206,7 +216,7 @@ const response = await fetch(
               {auditingId ? (
                   <div className="flex flex-col items-center py-8">
                       <div className="h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
-                      <p className="mt-4 text-gray-500">Hulum AI is analyzing route data...</p>
+                      <p className="mt-4 text-gray-500">Gemini is analyzing route data...</p>
                   </div>
               ) : auditResult ? (
                   <div className="space-y-4">
@@ -219,6 +229,7 @@ const response = await fetch(
                         <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-meta-4 p-3 rounded">
                             <p><strong>Analysis Data:</strong></p>
                             <ul className="list-disc ml-5 mt-1">
+                                {/* 4. Fixed initialRides error by using 'rides' state */}
                                 <li>Actual Distance: {rides.find(r => r.id === auditingId)?.distance_km}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
                                 <li>Actual Time: {rides.find(r => r.id === auditingId)?.time_taken}min vs Std: {auditResult.comparison.standardTimeMin.toFixed(1)}min</li>
                             </ul>
