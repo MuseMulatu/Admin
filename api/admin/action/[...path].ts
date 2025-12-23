@@ -2,60 +2,66 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const BACKEND_BASE = "https://app.share-rides.com";
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  const { method, body, query } = req;
-  const pathParts = query["...path"];
-
-  console.log("[ADMIN ACTION] Method:", method);
-  console.log("[ADMIN ACTION] Raw path:", pathParts);
-  console.log("[ADMIN ACTION] Body:", body);
-
-  if (!pathParts) {
-    return res.status(400).json({ error: "Missing action path" });
-  }
-
-  // Normalize path array
-  const segments = Array.isArray(pathParts)
-    ? pathParts
-    : [pathParts];
-
-  const adminPath = `/admin/${segments.join("/")}`;
-  const upstreamUrl = `${BACKEND_BASE}${adminPath}`;
-
-  // Only allow mutation methods
-  if (!["PATCH", "POST", "PUT", "DELETE"].includes(method || "")) {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  console.log("[ADMIN ACTION] Forwarding →", upstreamUrl);
-
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const upstream = await fetch(upstreamUrl, {
-      method,
+    console.log("––––––––––––––––––––––––––");
+    console.log("[VERCEL PROXY]");
+    console.log("Method:", req.method);
+    console.log("Original URL:", req.url);
+    console.log("Query object:", req.query);
+
+    // 1. Extract and normalize path
+    let path = req.query.path;
+
+    let pathArray: string[] = [];
+
+    if (Array.isArray(path)) {
+      pathArray = path;
+    } else if (typeof path === "string") {
+      pathArray = [path];
+    }
+
+    console.log("Normalized path array:", pathArray);
+
+    if (!pathArray.length) {
+      return res.status(400).json({ error: "Invalid admin path" });
+    }
+
+    // 2. Rebuild backend URL (query params preserved automatically)
+    const backendPath = `/admin/${pathArray.join("/")}`;
+    const backendUrl = `${BACKEND_BASE}${backendPath}`;
+
+    console.log("Forwarding to backend:", backendUrl);
+
+    // 3. Forward request
+    const upstream = await fetch(backendUrl, {
+      method: req.method,
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "X-Admin-Id": "vercel_admin",
-        "X-Admin-Role": "super_admin",
+        "X-Admin-Role": "super_admin"
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body:
+        req.method === "GET" || req.method === "HEAD"
+          ? undefined
+          : JSON.stringify(req.body),
     });
 
     const text = await upstream.text();
 
-    console.log("[ADMIN ACTION] Upstream status:", upstream.status);
-    console.log("[ADMIN ACTION] Raw response:", text);
+    console.log("Backend status:", upstream.status);
+    console.log("Backend response (raw):", text);
 
     res.status(upstream.status);
-    res.setHeader("Content-Type", "application/json");
 
-    // Avoid JSON parse crashes
-    res.send(text || JSON.stringify({ success: true }));
+    try {
+      res.json(JSON.parse(text));
+    } catch {
+      res.send(text);
+    }
   } catch (err) {
-    console.error("[ADMIN ACTION ERROR]", err);
-    res.status(500).json({ error: "Admin action proxy failed" });
+    console.error("[PROXY ERROR]", err);
+    res.status(500).json({ error: "Admin proxy failed" });
   }
 }
