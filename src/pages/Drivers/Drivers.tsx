@@ -25,7 +25,7 @@ export default function Drivers() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
   // Auth & Permissions
-  const { hasPermission } = useAdminStore();
+const { hasPermission, currentAdmin } = useAdminStore();
   const canManageDrivers = hasPermission('ADMIN');
 
   // Fetch Drivers
@@ -47,25 +47,31 @@ console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
 }, []);
 
 const handleStatusChange = async (driverId: string, newStatus: string) => {
-    // Safety check (optional, but good practice)
+    // 1. Auth Check
     if (!currentAdmin) {
         alert("You must be logged in to perform this action");
         return;
     }
+
+    // 2. SNAPSHOT: Save current state in case we need to roll back
+    const previousDrivers = drivers;
+
+    // 3. OPTIMISTIC UPDATE: Update UI *immediately* before the server responds
+    setDrivers(prevDrivers => prevDrivers.map(d => 
+        d.user_id === driverId ? { ...d, status: newStatus } : d
+    ));
 
     try {
         const response = await fetch(`/api/admin/drivers/${driverId}/status`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                // 👇 Inject the logged-in admin's credentials here
                 'X-Admin-Id': currentAdmin.id,
                 'X-Admin-Role': currentAdmin.role, 
             },
             body: JSON.stringify({
                 status: newStatus,
                 action: "UPDATE_DRIVER_STATUS",
-                // 👇 Send the name for better logs in 'admin_logs' table
                 admin_name: currentAdmin.name 
             })
         });
@@ -75,19 +81,19 @@ const handleStatusChange = async (driverId: string, newStatus: string) => {
             throw new Error(errorData.error || 'Failed to update status');
         }
 
+        // FIX TS ERROR because we use 'data' now
         const data = await response.json();
-        
-        // Update local state...
-        setDrivers(drivers.map(d => 
-            d.user_id === driverId ? { ...d, status: newStatus } : d
-        ));
-        
+        console.log("Server confirmed:", data.message);
+
     } catch (error: any) {
         console.error('Error updating status:', error);
-        alert(error.message);
+        
+        // 4. ROLLBACK: Revert UI if server fails
+        setDrivers(previousDrivers);
+        
+        alert(`Failed to update status: ${error.message}`);
     }
-};
-  return (
+};eturn (
     <>
       <PageMeta
         title="Driver Management"

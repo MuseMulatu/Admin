@@ -2,6 +2,21 @@ import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { useAdminStore } from "../../store/useAdminStore";
 
+interface Ride {
+  id: string;
+  type: 'corider' | 'solo' | string;
+  origin: string; // Used for audit
+  origin_address: string; // Used for display
+  destination: string;
+  destination_address: string;
+  distance_km: number;
+  time_taken: number; // in minutes
+  fare: number;
+  driver_name?: string;
+  user_name?: string;
+  status: string;
+}
+
 export default function Rides() {
   const [rides, setRides] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,8 +98,6 @@ const response = await fetch(
   }
 );
 
-
-
         if (response.ok) {
             setRides(prev => prev.filter(r => r.id !== rideId)); // Remove from list
             alert("Ride cancelled and action logged.");
@@ -96,7 +109,8 @@ const response = await fetch(
           alert("Network error.");
       }
   };
-
+// Helper to get the ride currently being audited
+// const currentAuditRide = rides.find(r => r.id === auditingId);
   return (
     <>
       <PageMeta title="Ride Management" description="Monitor live rides and pools" />
@@ -192,7 +206,7 @@ const response = await fetch(
               {auditingId ? (
                   <div className="flex flex-col items-center py-8">
                       <div className="h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
-                      <p className="mt-4 text-gray-500">Gemini is analyzing route data...</p>
+                      <p className="mt-4 text-gray-500">Hulum AI is analyzing route data...</p>
                   </div>
               ) : auditResult ? (
                   <div className="space-y-4">
@@ -205,8 +219,8 @@ const response = await fetch(
                         <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-meta-4 p-3 rounded">
                             <p><strong>Analysis Data:</strong></p>
                             <ul className="list-disc ml-5 mt-1">
-                                <li>Actual Distance: {initialRides.find(r => r.id === auditingId)?.distance_km}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
-                                <li>Actual Time: {initialRides.find(r => r.id === auditingId)?.time_taken}min vs Std: {auditResult.comparison.standardTimeMin.toFixed(1)}min</li>
+                                <li>Actual Distance: {rides.find(r => r.id === auditingId)?.distance_km}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
+                                <li>Actual Time: {rides.find(r => r.id === auditingId)?.time_taken}min vs Std: {auditResult.comparison.standardTimeMin.toFixed(1)}min</li>
                             </ul>
                         </div>
                       )}
