@@ -15,7 +15,7 @@ interface FleetState {
   isLoading: boolean;
   error: string | null;
   lastUpdated: number | null;
-  fetchDrivers: (city: string) => Promise<void>;
+  fetchDrivers: () => Promise<void>;
   updateDriverStatus: (driverId: string, newStatus: string) => void; // New action for local updates
 }
 
@@ -25,7 +25,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
   error: null,
   lastUpdated: null,
 
-  fetchDrivers: async (city: string) => {
+  fetchDrivers: async () => {
     // Only set loading if not already loading to avoid jitter, 
     // but for initial fetch, visual feedback.
     set({ isLoading: true, error: null });
