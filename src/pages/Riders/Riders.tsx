@@ -31,7 +31,7 @@ export default function Riders() {
   const [walletAmount, setWalletAmount] = useState("");
 
 useEffect(() => {
-  fetch(`/api/admin/riders`)
+  fetch(`https://app.share-rides.com/admin/riders`)
     .then(res => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
@@ -53,7 +53,7 @@ useEffect(() => {
 
       try {
          const response = await fetch(
-  `/api/admin/action/riders/${selectedRider.id}/wallet`,
+  `https://app.share-rides.com/admin/action/riders/${selectedRider.id}/wallet`,
   {
     method: 'PATCH',
     headers: {
@@ -66,7 +66,6 @@ useEffect(() => {
     })
   }
 );
-
           if (response.ok) {
               alert("Wallet updated successfully");
               // Update local state

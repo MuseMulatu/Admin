@@ -29,7 +29,7 @@ const { hasPermission, currentAdmin } = useAdminStore();
   // Fetch Drivers
 useEffect(() => {
 //console.log(`Fetching drivers from: ${API_BASE_URL}/admin/drivers`);
-  fetch(`/api/admin/drivers`)
+  fetch(`https://app.share-rides.com/admin/drivers`)
     .then(res => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
@@ -60,7 +60,7 @@ const handleStatusChange = async (driverId: string, newStatus: string) => {
     ));
 
     try {
-        const response = await fetch(`/api/admin/drivers/${driverId}/status`, {
+        const response = await fetch(`https://app.share-rides.com/admin/drivers/${driverId}/status`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
