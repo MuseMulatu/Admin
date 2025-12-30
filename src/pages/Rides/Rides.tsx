@@ -44,7 +44,7 @@ export default function Rides() {
     setAuditModalOpen(true);
 
     try {
-      const response = await fetch(`https://app.share-rides.com/ai/audit-ride`, {
+      const response = await fetch(`https://app.share-rides.com/api/ai/audit-ride`, {
         method: 'POST',
         headers: {
             ...getAuthHeaders(),
