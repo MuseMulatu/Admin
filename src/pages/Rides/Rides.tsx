@@ -50,13 +50,19 @@ export default function Rides() {
             ...getAuthHeaders(),
             'Content-Type': 'application/json' 
         },
-        body: JSON.stringify({
-          rideId: ride.id,
-          origin_address: ride.origin_address, 
-          destination_address: ride.destination_address,
-          distance_km: ride.distance_km || 0,
-          time_taken: ride.time_taken || 0
-        })
+// Inside handleAuditRide in Frontend
+body: JSON.stringify({
+  rideId: ride.id,
+  origin_address: ride.origin_address, 
+  destination_address: ride.destination_address,
+  
+  // Now this will work because the backend is actually sending these numbers
+  user_location: `${ride.origin_lat},${ride.origin_lng}`,
+  destination_location: `${ride.dest_lat},${ride.dest_lng}`,
+
+  distance_km: ride.distance_km || 0,
+  time_taken: ride.time_taken || 0
+})
       });
 
       if (!response.ok) throw new Error('Audit failed');
