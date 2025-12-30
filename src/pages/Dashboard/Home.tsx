@@ -97,157 +97,145 @@ const ActivityLog = ({ logs }: { logs: any[] }) => {
     </div>
   );
 };
+
 export default function Home() {
     const [loading, setLoading] = useState(true);
     const [dashboard, setDashboard] = useState<any>(null);
     const [recentLogs, setRecentLogs] = useState<any[]>([]);
     const [chartRange, setChartRange] = useState<'weekly' | 'monthly'>('weekly');
   
+    // --- AI Audit State ---
+    const [isAuditModalOpen, setAuditModalOpen] = useState(false);
+    const [auditingId, setAuditingId] = useState<string | null>(null);
+    const [auditResult, setAuditResult] = useState<any>(null);
+
     const isMapLoading = useFleetStore(state => state.isLoading);
     
     // Auth & Permissions
-  const { currentAdmin, hasPermission, logout } = useAdminStore();
-  const canUpdateRides =
-  hasPermission?.("ADMIN") || hasPermission?.("SUPER_ADMIN") || false;
+    const { currentAdmin, hasPermission, logout } = useAdminStore();
+    const canUpdateRides = hasPermission?.("ADMIN") || hasPermission?.("SUPER_ADMIN") || false;
 
 
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      // 1. Fetch Dashboard Overview (DIRECT → BACKEND)
-      const dashRes = await fetch(
-        `https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`,
-        {
-          method: "GET",
-        //  credentials: "include" // keep if you rely on cookies/session
-        }
-      );
-
-      if (!dashRes.ok) {
-        throw new Error(`Dashboard fetch failed: ${dashRes.status}`);
-      }
-
-      const rawText = await dashRes.text();
-      console.log("Dashboard raw response:", rawText);
-
-      let dashData;
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        dashData = JSON.parse(rawText);
-      } catch (e) {
-        console.error("Dashboard response is NOT JSON:", rawText);
-        throw e;
+        // 1. Fetch Dashboard Overview
+        const dashRes = await fetch(
+          `https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`,
+          { method: "GET" }
+        );
+
+        if (!dashRes.ok) throw new Error(`Dashboard fetch failed: ${dashRes.status}`);
+
+        const rawText = await dashRes.text();
+        const dashData = JSON.parse(rawText);
+        setDashboard(dashData);
+
+        if (!currentAdmin) return;
+
+        // 2. Fetch Logs
+        const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Id": currentAdmin.id,
+            "X-Admin-Role": currentAdmin.role || 'admin',
+          }
+        });
+
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 10) : []);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Dashboard data load error:", err);
+        setLoading(false);
       }
+    };
 
-      setDashboard(dashData);
+    fetchData();
+  }, [currentAdmin]);
 
-      if (!currentAdmin) return;
 
-      // 2. Fetch Logs (DIRECT → BACKEND)
-const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        // Pass the credentials your backend expects:
-        "X-Admin-Id": currentAdmin.id,
-        "X-Admin-Role": currentAdmin.role || 'admin',
-        // If you use JWT/Auth tokens:
-        // "Authorization": `Bearer ${currentAdmin.token}` 
-      }
-    });
+  // --- AI Audit Handler ---
+  const handleAuditRide = async (rideId: string) => {
+    setAuditingId(rideId);
+    setAuditResult(null);
+    setAuditModalOpen(true);
 
-    if (logsRes.ok) {
-      const logsData = await logsRes.json();
-      setRecentLogs(Array.isArray(logsData) ? logsData.slice(0, 10) : []);
-      }
-    else {
-      console.error("Logs fetch failed with status:", logsRes.status);
-    }
-      setLoading(false);
-    } catch (err) {
-      console.error("Dashboard data load error:", err);
-      setLoading(false);
+    try {
+      // 1. We first need the full ride details (coords, address) which might not be in the dashboard summary
+      const detailsRes = await fetch(`https://app.share-rides.com/admin/rides/${rideId}`, {
+         headers: {
+            "X-Admin-Id": currentAdmin?.id ?? "",
+            "X-Admin-Role": currentAdmin?.role?.toUpperCase() ?? ""
+         }
+      });
+      
+      if(!detailsRes.ok) throw new Error("Could not fetch ride details for audit");
+      const ride = await detailsRes.json();
+
+      // 2. Send to AI Auditor
+      const response = await fetch(`https://app.share-rides.com/api/ai/audit-ride`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          rideId: ride.id,
+          origin_address: ride.origin_address, 
+          destination_address: ride.destination_address,
+          // Extract coords if available, or fallback to address text
+          user_location: ride.origin_lat ? `${ride.origin_lat},${ride.origin_lng}` : ride.origin_address,
+          destination_location: ride.dest_lat ? `${ride.dest_lat},${ride.dest_lng}` : ride.destination_address,
+          distance_km: ride.distance_km || 0,
+          time_taken: ride.time_taken || 0
+        })
+      });
+
+      if (!response.ok) throw new Error('Audit failed');
+      
+      const data = await response.json();
+      setAuditResult(data);
+    } catch (error) {
+      console.error(error);
+      setAuditResult({ error: "Failed to connect to AI Auditor." });
+    } finally {
+      setAuditingId(null);
     }
   };
 
-  fetchData();
-}, [currentAdmin]);
+  const handleAssignDriver = async (rideId: string) => {
+    if (!confirm(`Confirm assignment override for Ride ${rideId}?`)) return;
 
-
-const handleAssignDriver = async (rideId: string) => {
-  if (
-    !confirm(
-      `Confirm assignment override for Ride ${rideId}? This will be logged under ${currentAdmin?.name}.`
-    )
-  )
-    return;
-
-  try {
-    const response = await fetch(
-      `https://app.share-rides.com/admin/rides/${rideId}/assign`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Id": currentAdmin?.id ?? "",
-          "X-Admin-Role": currentAdmin?.role?.toUpperCase() ?? ""
-        },
-       // credentials: "include",
-        body: JSON.stringify({
-          assigned_by: currentAdmin?.name,
-          action: "MANUAL_DRIVER_ASSIGNMENT",
-          timestamp: new Date().toISOString()
-        })
-      }
-    );
-
-    if (response.ok) {
-      alert("Driver assignment initiated and logged successfully.");
-    } else {
-      const err = await response.json().catch(() => ({}));
-      alert(`Failed to assign driver: ${err.message || "Unknown server error"}`);
-    }
-  } catch (error) {
-    console.error("Assignment error:", error);
-    alert("Network error connecting to operations backend.");
-  }
-};
-
-
-const handleViewDetails = async (rideId: string) => {
-  try {
-    const response = await fetch(
-      `https://app.share-rides.com/admin/rides/${rideId}`,
-      {
-        method: "GET",
-        headers: {
-          "X-Admin-Id": currentAdmin?.id ?? "",
-          "X-Admin-Role": currentAdmin?.role?.toUpperCase() ?? ""
-        },
-       // credentials: "include"
-      }
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      alert(
-        `Ride Details:
-----------------
-ID: ${data.id}
-Passenger: ${data.passenger_name}
-Pickup: ${data.origin_address}
-Dropoff: ${data.destination_address}
-Fare: ${data.fare}
-Status: ${data.status}`
+    try {
+      const response = await fetch(
+        `https://app.share-rides.com/admin/rides/${rideId}/assign`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Id": currentAdmin?.id ?? "",
+            "X-Admin-Role": currentAdmin?.role?.toUpperCase() ?? ""
+          },
+          body: JSON.stringify({
+            assigned_by: currentAdmin?.name,
+            action: "MANUAL_DRIVER_ASSIGNMENT",
+            timestamp: new Date().toISOString()
+          })
+        }
       );
-    } else {
-      alert("Ride details are being processed.");
-    }
-  } catch (err) {
-    console.error("Fetch details error:", err);
-    alert("Network error fetching details.");
-  }
-};
 
+      if (response.ok) {
+        alert("Driver assignment initiated.");
+      } else {
+        alert("Failed to assign driver.");
+      }
+    } catch (error) {
+      console.error("Assignment error:", error);
+    }
+  };
 
 
   const chartOptions: ApexOptions = {
@@ -300,6 +288,7 @@ Status: ${data.status}`
     <>
       <PageMeta title="Executive Dashboard | Hulum Rides" description="Real-time operational intelligence" />
 
+      {/* --- HEADER --- */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Overview</h2>
@@ -309,10 +298,8 @@ Status: ${data.status}`
         </div>
         
         <div className="flex items-center gap-4">
-           {/* Admin Identity Badge */}
            {currentAdmin && (
-               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"  onClick={logout}
- title="Click to Switch Identity">
+               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"  onClick={logout} title="Click to Switch Identity">
                    <img src={currentAdmin.avatar} alt="Admin" className="w-6 h-6 rounded-full" />
                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{currentAdmin.name}</span>
                    <span className="text-[10px] uppercase font-bold text-brand-500 border border-brand-200 px-1 rounded">{currentAdmin.role.replace('_', '')}</span>
@@ -331,6 +318,7 @@ Status: ${data.status}`
         </div>
       </div>
 
+      {/* --- KPI GRID --- */}
       <div className="grid grid-cols-1 gap-6 mb-8">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Total Revenue" value={`$${dashboard.metrics.revenueToday.toLocaleString()}`} icon="💸" trend={12.5} />
@@ -340,8 +328,7 @@ Status: ${data.status}`
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Live Map with Store integration */}
+          {/* Live Map */}
           <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 flex flex-col">
             <div className="absolute top-5 left-5 z-10">
                <div className="flex items-center gap-2 bg-white/90 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 shadow-lg">
@@ -356,9 +343,8 @@ Status: ${data.status}`
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Insights + LOGS (New ShadCN Section) */}
+          {/* Logs & Insights */}
           <div className="flex flex-col gap-6 h-[450px]">
-             {/* Smart Insights (Smaller now) */}
              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 flex-1 overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-gray-900 dark:text-white text-sm">AI Predictions</h3>
@@ -383,7 +369,6 @@ Status: ${data.status}`
                 </div>
              </div>
 
-             {/* SHADCN-STYLE LOGS WIDGET */}
              <div className="flex-1">
                 <ActivityLog logs={recentLogs} />
              </div>
@@ -414,105 +399,178 @@ Status: ${data.status}`
             )}
           </div>
 
- <div className="rounded-3xl border border-gray-200 bg-white p-0 shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden flex flex-col">
-  <div className="p-6 border-b border-gray-100 dark:border-gray-800">
-    <h3 className="font-bold text-gray-900 dark:text-white">Live Dispatch</h3>
-  </div>
+        {/* --- LIVE DISPATCH TABLE --- */}
+         <div className="rounded-3xl border border-gray-200 bg-white p-0 shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+            <h3 className="font-bold text-gray-900 dark:text-white">Live Dispatch</h3>
+            <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-md animate-pulse">
+                {dashboard.liveRides.length} Active
+            </span>
+          </div>
 
-  <div className="overflow-y-auto max-h-[380px]">
-    <table className="w-full text-left">
-      <thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm">
-        <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          <th className="px-6 py-3">Ride ID</th>
-          <th className="px-6 py-3">Type</th>
-          <th className="px-6 py-3 text-right">Status</th>
-          {canUpdateRides && <th className="px-6 py-3 text-right">Action</th>}
-        </tr>
-      </thead>
+          <div className="overflow-y-auto max-h-[380px]">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm z-10">
+                <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  {/* MOVED: Action Column First */}
+                  <th className="px-6 py-3 w-[140px]">Quick Actions</th>
+                  <th className="px-6 py-3">Ride ID</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3 text-right">Status</th>
+                </tr>
+              </thead>
 
-      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-        {dashboard.liveRides.map((ride: any) => (
-          <tr
-            key={ride.id}
-            className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
-            {/* Ride ID + Driver */}
-            <td className="px-6 py-4">
-              <div className="flex items-start gap-3">
-                {ride.profile_image ? (
-                  <img
-                    src={ride.profile_image}
-                    alt={ride.driver}
-                    className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        `https://ui-avatars.com/api/?name=${ride.driver}&background=random`;
-                    }}
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
-                    {ride.driver ? ride.driver.charAt(0).toUpperCase() : "?"}
-                  </div>
-                )}
-
-                <div className="flex flex-col leading-tight">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {ride.driver || "Finding Driver..."}
-                  </span>
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                    {ride.id}
-                  </span>
-                </div>
-              </div>
-            </td>
-
-            {/* Type */}
-            <td className="px-6 py-4">
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                  ride.type === "corider"
-                    ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
-                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
-                }`}
-              >
-                {ride.type === "corider" ? "Pool" : "Standard"}
-              </span>
-            </td>
-
-            {/* Status */}
-            <td className="px-6 py-4 text-right">
-              <span className="text-sm font-medium text-emerald-500">{ride.status}</span>
-            </td>
-
-            {/* Admin Action Column */}
-               {canUpdateRides && (
-              <td className="px-6 py-4 text-right">
-                {!ride.driver ? (
-                  <button
-                    onClick={() => handleAssignDriver(ride.id)}
-                    className="text-xs font-semibold text-brand-500 hover:text-brand-600 hover:underline"
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {dashboard.liveRides.map((ride: any) => (
+                  <tr
+                    key={ride.id}
+                    className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                   >
-                    Assign
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleViewDetails(ride.id)}
-                    className="text-xs text-gray-400 hover:text-gray-500"
-                  >
-                    Details
-                  </button>
-                )}
-              </td>
-            )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
+                     {/* 1. ACTIONS COLUMN (First for Visibility) */}
+                     <td className="px-6 py-4">
+                       <div className="flex items-center gap-2">
+                            {/* AI AUDIT BUTTON */}
+                            <button
+                                onClick={() => handleAuditRide(ride.id)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:shadow-md transition-all whitespace-nowrap"
+                                title="Run AI Fraud & Efficiency Check"
+                            >
+                                ✨AI Analyze
+                            </button>
+
+                            {/* Assign Button (Secondary) */}
+                            {!ride.driver && canUpdateRides && (
+                                <button
+                                    onClick={() => handleAssignDriver(ride.id)}
+                                    className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded"
+                                    title="Manual Assignment"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                                </button>
+                            )}
+                       </div>
+                    </td>
+
+                    {/* Ride ID + Driver */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-start gap-3">
+                        {ride.profile_image ? (
+                          <img
+                            src={ride.profile_image}
+                            alt={ride.driver}
+                            className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                `https://ui-avatars.com/api/?name=${ride.driver}&background=random`;
+                            }}
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                            {ride.driver ? ride.driver.charAt(0).toUpperCase() : "?"}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {ride.driver || "Finding Driver..."}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                            {ride.id.substring(0,8)}...
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Type */}
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                          ride.type === "corider"
+                            ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+                        }`}
+                      >
+                        {ride.type === "corider" ? "Pool" : "Standard"}
+                      </span>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-sm font-medium text-emerald-500">{ride.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         </div>
       </div>
+
+      {/* --- AI AUDIT MODAL (Copied Overlay) --- */}
+      {isAuditModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 backdrop-blur-sm outline-none focus:outline-none">
+           <div className="relative w-full max-w-lg rounded-xl bg-white p-8 shadow-2xl dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-2">
+                     <span className="text-2xl">✨</span>
+                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">Ride Audit Report</h3>
+                  </div>
+                  <button onClick={() => setAuditModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              </div>
+              
+              {auditingId ? (
+                  <div className="flex flex-col items-center py-10">
+                      <div className="h-12 w-12 animate-spin rounded-full border-4 border-solid border-indigo-600 border-t-transparent"></div>
+                      <p className="mt-4 text-gray-500 font-medium">AI is analyzing route & fraud markers...</p>
+                  </div>
+              ) : auditResult ? (
+                  <div className="space-y-4">
+                      {auditResult.error ? (
+                          <div className="text-red-600 bg-red-50 p-4 rounded-lg border border-red-100">
+                              {auditResult.error}
+                          </div>
+                      ) : (
+                          <>
+                            <div className={`p-5 rounded-xl border-l-4 ${auditResult.flag === 'Red' ? 'bg-red-50 border-red-500 text-red-800' : auditResult.flag === 'Yellow' ? 'bg-yellow-50 border-yellow-500 text-yellow-800' : 'bg-green-50 border-green-500 text-green-800'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <strong className="text-lg uppercase tracking-wide">{auditResult.flag} Flag</strong>
+                                    <span className="text-xs bg-white/50 px-2 py-1 rounded">Confidence: High</span>
+                                </div>
+                                <p className="leading-relaxed">{auditResult.summary}</p>
+                            </div>
+                            
+                            {auditResult.comparison && (
+                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                                    <p className="font-semibold mb-2">Technical Analysis:</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                       <div>
+                                          <span className="block text-xs text-gray-500 uppercase">Std Distance</span>
+                                          <span className="font-mono">{auditResult.comparison.standardDistanceKm.toFixed(2)} km</span>
+                                       </div>
+                                       <div>
+                                          <span className="block text-xs text-gray-500 uppercase">Std Time</span>
+                                          <span className="font-mono">{auditResult.comparison.standardTimeMin.toFixed(2)} min</span>
+                                       </div>
+                                    </div>
+                                </div>
+                            )}
+                          </>
+                      )}
+                  </div>
+              ) : (
+                  <p className="text-red-500">Could not retrieve audit.</p>
+              )}
+              
+              <div className="mt-8 flex justify-end">
+                  <button onClick={() => setAuditModalOpen(false)} className="rounded-lg bg-gray-100 px-6 py-2.5 font-medium text-gray-700 hover:bg-gray-200 transition-colors">
+                      Close Report
+                  </button>
+              </div>
+           </div>
+        </div>
+      )}
     </>
   );
 }

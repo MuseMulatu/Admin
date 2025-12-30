@@ -35,6 +35,12 @@ export default function Rides() {
   const [auditingId, setAuditingId] = useState<string | null>(null);
   const [auditResult, setAuditResult] = useState<any>(null);
 
+const [activeTab, setActiveTab] = useState<'live' | 'completed'>('live');
+const [filters, setFilters] = useState({
+  date: '',
+  minFare: ''
+});
+
   // FIX: Explicitly type the return to satisfy TypeScript's checks
   const getAuthHeaders = (): Record<string, string> => {
     if (!currentAdmin) return {};
@@ -62,11 +68,9 @@ body: JSON.stringify({
   rideId: ride.id,
   origin_address: ride.origin_address, 
   destination_address: ride.destination_address,
-  
   // Now this will work because the backend is actually sending these numbers
   user_location: `${ride.origin_lat},${ride.origin_lng}`,
   destination_location: `${ride.dest_lat},${ride.dest_lng}`,
-
   distance_km: ride.distance_km || 0,
   time_taken: ride.time_taken || 0
 })
@@ -84,10 +88,18 @@ body: JSON.stringify({
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     if (!currentAdmin) return;
+    setLoading(true);
 
-    fetch(`https://app.share-rides.com/admin/rides/active`, {
+    // Build Query Parameters
+    const params = new URLSearchParams();
+    params.append('tab', activeTab);
+    if (filters.date) params.append('date', filters.date);
+    if (filters.minFare) params.append('min_fare', filters.minFare);
+
+    // Note: Endpoint changed from /active to generic /admin/rides
+    fetch(`https://app.share-rides.com/admin/rides?${params.toString()}`, {
       headers: getAuthHeaders()
     })
       .then(res => {
@@ -95,7 +107,6 @@ body: JSON.stringify({
         return res.json();
       })
       .then(data => {
-        // console.log("Rides Loaded:", data);
         setRides(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -103,7 +114,7 @@ body: JSON.stringify({
         console.error("Fetch rides failed", err);
         setLoading(false);
       });
-  }, [currentAdmin]);
+  }, [currentAdmin, activeTab, filters]);
 
 
   const handleForceCancel = async (rideId: string) => {
@@ -141,14 +152,53 @@ body: JSON.stringify({
       <PageMeta title="Ride Management" description="Monitor live rides and pools" />
       
       <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Live Operations</h2>
-            <div className="flex gap-2">
-                <button className="px-3 py-1 text-xs font-medium bg-brand-50 text-brand-600 rounded-full border border-brand-200">Live ({rides.length})</button>
-                <button className="px-3 py-1 text-xs font-medium text-gray-500 hover:text-gray-700">Completed</button>
-            </div>
+       {/* Header & Controls */}
+<div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+        {activeTab === 'live' ? 'Live Operations' : 'Ride History'}
+    </h2>
+
+    <div className="flex flex-wrap items-center gap-3">
+        {/* Date Filter */}
+        <input 
+            type="date"
+            className="rounded border border-gray-300 px-3 py-1 text-sm dark:bg-gray-800 dark:border-gray-700"
+            onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
+        />
+
+        {/* Min Fare Filter */}
+        <input 
+            type="number" 
+            placeholder="Min Fare ($)"
+            className="w-24 rounded border border-gray-300 px-3 py-1 text-sm dark:bg-gray-800 dark:border-gray-700"
+            onBlur={(e) => setFilters(prev => ({ ...prev, minFare: e.target.value }))}
+        />
+
+        {/* Tab Toggle */}
+        <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+            <button 
+                onClick={() => setActiveTab('live')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                    activeTab === 'live' 
+                    ? 'bg-white text-brand-600 shadow-sm dark:bg-gray-700 dark:text-white' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+                Live
+            </button>
+            <button 
+                onClick={() => setActiveTab('completed')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                    activeTab === 'completed' 
+                    ? 'bg-white text-brand-600 shadow-sm dark:bg-gray-700 dark:text-white' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+                Completed
+            </button>
         </div>
-        
+    </div>
+</div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
         <thead>
@@ -274,7 +324,7 @@ body: JSON.stringify({
                                 <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-meta-4 p-3 rounded">
                                     <p><strong>Analysis Data:</strong></p>
                                     <ul className="list-disc ml-5 mt-1">
-                                        <li>Actual Distance: {rides.find(r => r.id === auditingId)?.distance_km || 'N/A'}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
+                                        <li>Actual Distance: {rides.find(r => r.id === auditingId)?.distance_km || 'N/A (ongoing ride)'}km vs Std: {auditResult.comparison.standardDistanceKm.toFixed(1)}km</li>
                                     </ul>
                                 </div>
                             )}
