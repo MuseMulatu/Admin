@@ -213,7 +213,7 @@ body: JSON.stringify({
   </td>
 
   <td className="p-4 text-sm font-bold text-gray-700 dark:text-gray-300">
-    ETB {ride.fare}
+    $ {ride.fare}
   </td>
 
   {/* ✅ ACTIONS (Audit + Force Stop) */}

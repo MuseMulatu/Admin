@@ -136,7 +136,7 @@ return (
                 </div>
                 <div>
                     <span className="block text-xs font-semibold text-gray-500 uppercase">Earnings</span>
-                    <span className="block mt-1 font-mono text-gray-900 dark:text-white">ETB {selectedDriver?.earnings}</span>
+                    <span className="block mt-1 font-mono text-gray-900 dark:text-white">$ {selectedDriver?.earnings}</span>
                 </div>
             </div>
 
@@ -284,7 +284,7 @@ return (
                     </td>
 
                     <td className="p-4 font-mono text-sm text-gray-600 dark:text-gray-300">
-                       ETB {driver.earnings}
+                       $ {driver.earnings}
                     </td>
 
                     <td className="p-4 text-right">

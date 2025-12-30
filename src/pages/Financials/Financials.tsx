@@ -50,17 +50,17 @@ useEffect(() => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-lg">
             <p className="text-brand-100 text-sm font-medium uppercase">Total Revenue (Month)</p>
-            <h3 className="text-3xl font-bold mt-2">ETB {stats?.total_revenue?.toLocaleString() || '0'}</h3>
+            <h3 className="text-3xl font-bold mt-2">$ {stats?.total_revenue?.toLocaleString() || '0'}</h3>
             <p className="text-sm mt-4 bg-white/20 inline-block px-2 py-1 rounded">+12.5% vs last month</p>
         </div>
         <div className="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
             <p className="text-gray-500 text-sm font-medium uppercase">Pending Payouts</p>
-            <h3 className="text-3xl font-bold mt-2 text-gray-900 dark:text-white">ETB {stats?.pending_payouts?.toLocaleString() || '0'}</h3>
+            <h3 className="text-3xl font-bold mt-2 text-gray-900 dark:text-white">$ {stats?.pending_payouts?.toLocaleString() || '0'}</h3>
             <button className="text-sm mt-4 text-brand-500 font-medium hover:underline">Process Payouts →</button>
         </div>
         <div className="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
             <p className="text-gray-500 text-sm font-medium uppercase">Net Commission</p>
-            <h3 className="text-3xl font-bold mt-2 text-emerald-500">ETB {stats?.net_commission?.toLocaleString() || '0'}</h3>
+            <h3 className="text-3xl font-bold mt-2 text-emerald-500">$ {stats?.net_commission?.toLocaleString() || '0'}</h3>
             <p className="text-xs text-gray-400 mt-1">Platform take rate: 15%</p>
         </div>
       </div>

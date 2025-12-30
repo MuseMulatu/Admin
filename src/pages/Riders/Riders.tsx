@@ -49,7 +49,7 @@ useEffect(() => {
 
   const handleWalletUpdate = async () => {
       if (!selectedRider || !walletAmount) return;
-      if (!confirm(`Are you sure you want to add ETB ${walletAmount} to ${selectedRider.username}'s wallet?`)) return;
+      if (!confirm(`Are you sure you want to add $ ${walletAmount} to ${selectedRider.username}'s wallet?`)) return;
 
       try {
          const response = await fetch(
@@ -105,7 +105,7 @@ useEffect(() => {
                   <ul className="space-y-2 text-sm">
                       <li className="flex justify-between">
                           <span>To Bole Airport</span>
-                          <span className="text-green-600">Completed (ETB 150)</span>
+                          <span className="text-green-600">Completed ($ 150)</span>
                       </li>
                       <li className="flex justify-between">
                           <span>To Kazanchis</span>
@@ -113,7 +113,7 @@ useEffect(() => {
                       </li>
                       <li className="flex justify-between">
                           <span>To Piassa</span>
-                          <span className="text-green-600">Completed (ETB 85)</span>
+                          <span className="text-green-600">Completed ($ 85)</span>
                       </li>
                   </ul>
               </div>
@@ -129,14 +129,14 @@ useEffect(() => {
               <div className="text-center mb-4">
                   <span className="block text-gray-500 text-xs uppercase">Current Balance</span>
                   <span className="text-3xl font-bold text-gray-900 dark:text-white font-mono">
-                      ETB {Number(selectedRider?.balance || 0).toFixed(2)}
+                      $ {Number(selectedRider?.balance || 0).toFixed(2)}
                   </span>
               </div>
               
               <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount to Add (Negative to deduct)</label>
                   <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">ETB</span>
+                      <span className="absolute left-3 top-2 text-gray-500">$</span>
                       <input 
                         type="number" 
                         value={walletAmount}
@@ -231,7 +231,7 @@ useEffect(() => {
                     </span>
                   </td>
                   <td className="p-4 font-mono text-sm text-gray-700 dark:text-gray-300">
-                    ETB {Number(rider.balance || 0).toFixed(2)}
+                    $ {Number(rider.balance || 0).toFixed(2)}
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">

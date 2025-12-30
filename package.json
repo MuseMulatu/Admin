@@ -19,7 +19,9 @@
     "@react-jvectormap/core": "^1.0.4",
     "@react-jvectormap/world": "^1.1.2",
     "@types/leaflet": "^1.9.21",
+    "@vercel/node": "^5.5.16",
     "apexcharts": "^4.7.0",
+    "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "flatpickr": "^4.6.13",
     "leaflet": "^1.9.4",
@@ -35,7 +37,6 @@
     "react-router-dom": "^7.10.1",
     "swiper": "^11.2.3",
     "tailwind-merge": "^3.0.1",
-    "@vercel/node": "^5.5.16",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
