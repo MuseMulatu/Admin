@@ -148,7 +148,7 @@ const logsRes = await fetch(`https://app.share-rides.com/admin/logs`, {
       headers: {
         "Content-Type": "application/json",
         // Pass the credentials your backend expects:
-        "X-Admin-Id": currentAdmin.id || currentAdmin.user_id,
+        "X-Admin-Id": currentAdmin.id,
         "X-Admin-Role": currentAdmin.role || 'admin',
         // If you use JWT/Auth tokens:
         // "Authorization": `Bearer ${currentAdmin.token}` 
