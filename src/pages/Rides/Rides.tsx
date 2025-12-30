@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { useAdminStore } from "../../store/useAdminStore";
 
+// src/pages/Rides/Rides.tsx
+
 interface Ride {
   id: string;
   user_id: string;
@@ -12,10 +14,15 @@ interface Ride {
   status: string;
   type: string;
   created_at: string;
-  user_name: string;           
+  user_name: string;            
   driver_name: string | null;  
   distance_km?: number;        
-  time_taken?: number;         
+  time_taken?: number;  
+
+  origin_lat?: number;
+  origin_lng?: number;
+  dest_lat?: number;
+  dest_lng?: number;
 }
 
 export default function Rides() {
