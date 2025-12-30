@@ -32,7 +32,7 @@ export default function AdminSelector() {
 
     try {
         // Call your new backend endpoint
-        const response = await axios.post('http://localhost:5000/api/admin/login', {
+        const response = await axios.post('https://app.share-rides.com/api/admin/login', {
             adminId: selectedTarget.id,
             password: password
         });
