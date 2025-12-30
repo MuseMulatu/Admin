@@ -7,7 +7,7 @@ const TICKETS = [
   {
     id: 1,
     user: "Sarah Jenkins",
-    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026024d",
+    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
     issue: "Driver was rude & late",
     text: "The driver arrived 15 mins late and refused to turn on the AC. I want a refund.",
     time: "10m ago",
@@ -16,7 +16,7 @@ const TICKETS = [
   {
     id: 2,
     user: "David Bekele",
-    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
+    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026024d",
     issue: "Charged twice",
     text: "I see two charges on my card for the trip to Bole Airport. Please fix this.",
     time: "1h ago",
@@ -52,7 +52,7 @@ export default function NotificationDropdown() {
 
     try {
       // Hit your backend
-      const res = await axios.post('http://localhost:5000/api/ai/draft-response', {
+      const res = await axios.post('https://app.share-rides.com/api/ai/draft-response', {
         ticketId: activeTicket.id,
         rideDetails: activeTicket.details,
         complaintText: activeTicket.text
