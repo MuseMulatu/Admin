@@ -5,7 +5,7 @@ import ReactApexChart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import LiveFleetMap from "../../components/Maps/LiveFleetMap";
 import { useFleetStore } from "../../store/useFleetStore";
-import { useAdminStore } from "../../store/useAdminStore"; 
+import { useAdminStore } from "../../store/useAdminStore";
 
 /* ---------- UI Components ---------- */
 
@@ -98,12 +98,21 @@ const ActivityLog = ({ logs }: { logs: any[] }) => {
   );
 };
 
+// --- CITY CONFIGURATION ---
+const CITIES = {
+  "Austin, TX": { lat: 30.2672, lng: -97.7431 },
+  "Atlanta, GA": { lat: 33.7490, lng: -84.3880 }
+};
+
 export default function Home() {
     const [loading, setLoading] = useState(true);
     const [dashboard, setDashboard] = useState<any>(null);
     const [recentLogs, setRecentLogs] = useState<any[]>([]);
     const [chartRange, setChartRange] = useState<'weekly' | 'monthly'>('weekly');
-  
+    
+    // --- NEW: City State ---
+    const [selectedCity, setSelectedCity] = useState<keyof typeof CITIES>("Austin, TX");
+
     // --- AI Audit State ---
     const [isAuditModalOpen, setAuditModalOpen] = useState(false);
     const [auditingId, setAuditingId] = useState<string | null>(null);
@@ -118,10 +127,11 @@ export default function Home() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true); // Set loading true when city changes to refresh UI feedback
       try {
-        // 1. Fetch Dashboard Overview
+        // 1. Fetch Dashboard Overview (Dynamic City)
         const dashRes = await fetch(
-          `https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent("Austin, TX")}`,
+          `https://app.share-rides.com/admin/dashboard/overview?city=${encodeURIComponent(selectedCity)}`,
           { method: "GET" }
         );
 
@@ -155,7 +165,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, [currentAdmin]);
+  }, [currentAdmin, selectedCity]); // Re-run when city changes
 
 
   // --- AI Audit Handler ---
@@ -165,7 +175,6 @@ export default function Home() {
     setAuditModalOpen(true);
 
     try {
-      // 1. We first need the full ride details (coords, address) which might not be in the dashboard summary
       const detailsRes = await fetch(`https://app.share-rides.com/admin/rides/${rideId}`, {
          headers: {
             "X-Admin-Id": currentAdmin?.id ?? "",
@@ -176,7 +185,6 @@ export default function Home() {
       if(!detailsRes.ok) throw new Error("Could not fetch ride details for audit");
       const ride = await detailsRes.json();
 
-      // 2. Send to AI Auditor
       const response = await fetch(`https://app.share-rides.com/api/ai/audit-ride`, {
         method: 'POST',
         headers: {
@@ -186,7 +194,6 @@ export default function Home() {
           rideId: ride.id,
           origin_address: ride.origin_address, 
           destination_address: ride.destination_address,
-          // Extract coords if available, or fallback to address text
           user_location: ride.origin_lat ? `${ride.origin_lat},${ride.origin_lng}` : ride.origin_address,
           destination_location: ride.dest_lat ? `${ride.dest_lat},${ride.dest_lng}` : ride.destination_address,
           distance_km: ride.distance_km || 0,
@@ -286,15 +293,27 @@ export default function Home() {
 
   return (
     <>
-      <PageMeta title="Executive Dashboard | Hulum Rides" description="Real-time operational intelligence" />
+      <PageMeta title={`Executive Dashboard - ${selectedCity} | Hulum Rides`} description="Real-time operational intelligence" />
 
       {/* --- HEADER --- */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Overview</h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Real-time fleet analytics for <span className="font-semibold text-brand-500">Austin, TX</span>
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Real-time fleet analytics for
+            </p>
+            {/* CITY SWITCHER */}
+            <select 
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value as keyof typeof CITIES)}
+              className="bg-transparent font-bold text-brand-500 border-none p-0 pr-6 cursor-pointer focus:ring-0 text-sm hover:text-brand-600 transition-colors"
+            >
+              {Object.keys(CITIES).map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
@@ -328,18 +347,21 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Live Map */}
+          {/* Live Map - Now accepts city coordinates */}
           <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 flex flex-col">
             <div className="absolute top-5 left-5 z-10">
                <div className="flex items-center gap-2 bg-white/90 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 shadow-lg">
                  <div className={`h-2 w-2 rounded-full ${isMapLoading ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`} />
                  <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                    {isMapLoading ? 'Syncing...' : 'Live Fleet'}
+                    {isMapLoading ? 'Syncing...' : `Live Fleet: ${selectedCity.split(',')[0]}`}
                  </span>
                </div>
             </div>
             <div className="flex-1 min-h-[450px]">
-              <LiveFleetMap />
+              <LiveFleetMap 
+                center={[CITIES[selectedCity].lat, CITIES[selectedCity].lng]} 
+                zoom={12} 
+              />
             </div>
           </div>
 
@@ -353,7 +375,7 @@ export default function Home() {
                 <div className="space-y-4">
                   <div className="group">
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500 font-medium">Demand Surge (Downtown)</span>
+                      <span className="text-gray-500 font-medium">Demand Surge ({selectedCity.split(',')[0]} Core)</span>
                       <span className="text-rose-500 font-bold">High</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-1.5 dark:bg-gray-800 overflow-hidden">
@@ -382,6 +404,8 @@ export default function Home() {
           <SmallMetric label="Driver Uptime" value={`${dashboard?.metrics?.driverAvailability}%`} colorClass="text-emerald-500" />
         </div>
 
+        {/* ... Rest of the component (Charts, Tables) remains the same ... */}
+        
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="xl:col-span-2 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between mb-6">

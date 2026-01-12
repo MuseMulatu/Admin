@@ -1,25 +1,37 @@
-import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl, useMap } from 'react-leaflet';
 import { useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { useFleetStore } from '../../store/useFleetStore';
 import { useAdminStore } from '../../store/useAdminStore'; 
 
-const CENTER: [number, number] = [30.2672, -97.7431]; // Austin
+// Props to control the map View
+interface LiveFleetMapProps {
+  center?: [number, number];
+  zoom?: number;
+}
 
-export default function LiveFleetMap() {
+// Component to handle dynamic map updates (flyTo/setView)
+const MapUpdater = ({ center, zoom }: { center: [number, number], zoom: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+};
+
+export default function LiveFleetMap({ center = [30.2672, -97.7431], zoom = 13 }: LiveFleetMapProps) {
   const drivers = useFleetStore((state) => state.drivers);
   const fetchDrivers = useFleetStore((state) => state.fetchDrivers);
-  const updateDriverStatus = useFleetStore((state) => state.updateDriverStatus); // Get update action
+  const updateDriverStatus = useFleetStore((state) => state.updateDriverStatus); 
   const isLoading = useFleetStore((state) => state.isLoading);
   
-  // Auth check
   const hasPermission = useAdminStore((state) => state.hasPermission);
-  const canUpdate = hasPermission('ADMIN'); // Only ADMIN or SUPER_ADMIN can update
+  const canUpdate = hasPermission('ADMIN'); 
 
   useEffect(() => {
     fetchDrivers();
     const interval = setInterval(() => {
-        fetchDrivers( );
+        fetchDrivers();
     }, 30000);
     return () => clearInterval(interval);
   }, [fetchDrivers]);
@@ -27,7 +39,6 @@ export default function LiveFleetMap() {
   const handleStatusChange = (driverId: string, status: string) => {
       if (!confirm(`Are you sure you want to mark this driver as ${status}? This action will be logged.`)) return;
       updateDriverStatus(driverId, status);
-      // Here you would also trigger the API call and log to your logs table
   };
 
   return (
@@ -43,12 +54,14 @@ export default function LiveFleetMap() {
       )}
 
       <MapContainer 
-        center={CENTER} 
-        zoom={13} 
+        center={center} 
+        zoom={zoom} 
         scrollWheelZoom={true} 
         zoomControl={false} 
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
+        <MapUpdater center={center} zoom={zoom} />
+        
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
