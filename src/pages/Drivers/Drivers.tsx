@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Modal from "../../components/common/Modal";
 import { useAdminStore } from "../../store/useAdminStore";
+import { Edit2, Save, X, Camera, UploadCloud } from "lucide-react"; // Assuming you have lucide-react, or use emojis
 
 interface Driver {
   id?: string;
@@ -14,7 +15,7 @@ interface Driver {
   earnings: number;
   profile_image?: string;
   bio?: string;
-  email?: string; // Added email interface
+  email?: string;
 }
 
 // --- CONFIGURATION ---
@@ -32,29 +33,24 @@ export default function Drivers() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false); 
 
-  // --- NEW: State for Invite Modal ---
+  // State for Invite Modal
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [driverToInvite, setDriverToInvite] = useState<Driver | null>(null);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
 
+  // --- NEW: EDIT MODE STATES ---
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>({});
+  const editFileRef = useRef<HTMLInputElement>(null);
+
   const [newDriver, setNewDriver] = useState({
-      name: "",
-      phone_number: "+1", 
-      gender: "Male",
-      city: "Atlanta, GA", 
-      languages: "",        
-      bio: "",
-      profile_image: "",    
-      vehicle_model: "",
-      vehicle_color: "",
-      vehicle_plate: ""
+      name: "", phone_number: "+1", gender: "Male", city: "Atlanta, GA", 
+      languages: "", bio: "", profile_image: "",    
+      vehicle_model: "", vehicle_color: "", vehicle_plate: ""
   });
 
-  // Ref for hidden file input
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Auth
   const { hasPermission, currentAdmin } = useAdminStore(); 
   const canManageDrivers = hasPermission('ADMIN');
 
@@ -85,85 +81,144 @@ export default function Drivers() {
       fetchDrivers();
   }, []);
 
-  // --- IMAGE UPLOAD LOGIC ---
+  useEffect(() => {
+      console.log("drivers--------------:", drivers[0])
+  }, [drivers]);
+  // --- NEW: INITIALIZE EDIT FORM ---
+  useEffect(() => {
+    if (selectedDriver) {
+        setEditFormData({
+            share_username: selectedDriver.share_username,
+            phone_number: selectedDriver.phone_number,
+            city: selectedDriver.city || "",
+            bio: selectedDriver.bio || "",
+            profile_image: selectedDriver.profile_image || "",
+            // Flatten vehicle details for the form inputs
+            vehicle_model: selectedDriver.vehicle_details?.model || "",
+            vehicle_color: selectedDriver.vehicle_details?.color || "",
+            vehicle_plate: selectedDriver.vehicle_details?.plate_number || "",
+        });
+        setIsEditMode(false); // Reset to view mode on open
+    }
+  }, [selectedDriver]);
+
+  // --- IMAGE UPLOAD LOGIC (Generic) ---
+  const uploadImage = async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file); 
+      formData.append("upload_preset", UPLOAD_PRESET);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+          method: "POST",
+          body: formData,
+      });
+      return await res.json();
+  };
+
+  // Handler for Create Mode Upload
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
-
       setIsUploading(true);
       try {
-          const formData = new FormData();
-          formData.append("file", file); 
-          formData.append("upload_preset", UPLOAD_PRESET);
+          const data = await uploadImage(file);
+          if (data.secure_url) setNewDriver(prev => ({ ...prev, profile_image: data.secure_url }));
+      } catch (e) { console.error(e); alert("Upload failed"); } 
+      finally { setIsUploading(false); }
+  };
 
-          const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-              method: "POST",
-              body: formData,
-          });
-
-          const data = await res.json();
-          
-          if (data.secure_url) {
-              setNewDriver(prev => ({ ...prev, profile_image: data.secure_url }));
-          } else {
-              alert("Upload failed.");
-          }
-      } catch (error) {
-          console.error("Error uploading image:", error);
-      } finally {
-          setIsUploading(false);
-      }
+  // --- NEW: Handler for Edit Mode Upload ---
+  const handleEditFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+        const data = await uploadImage(file);
+        if (data.secure_url) setEditFormData((prev: any) => ({ ...prev, profile_image: data.secure_url }));
+    } catch (e) { console.error(e); alert("Upload failed"); } 
+    finally { setIsUploading(false); }
   };
 
   // --- SUBMIT HANDLER (CREATE) ---
   const handleCreateDriver = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSubmitting(true);
-
       try {
           const response = await fetch(`https://app.share-rides.com/admin/drivers`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newDriver)
           });
-
           if (!response.ok) throw new Error('Failed to create driver');
-          
           const responseData = await response.json();
-
-          const createdDriverObj: Driver = {
-              id: responseData.driver.user_id,
-              user_id: responseData.driver.user_id,
-              share_username: newDriver.name,
-              phone_number: newDriver.phone_number,
-              city: newDriver.city,
-              status: 'available', 
-              earnings: 0,
-              profile_image: newDriver.profile_image,
-              bio: newDriver.bio,
-              vehicle_details: {
-                  model: newDriver.vehicle_model,
-                  color: newDriver.vehicle_color,
-                  plate_number: newDriver.vehicle_plate
-              }
-          };
-
-          setDrivers(prev => [createdDriverObj, ...prev]);
+          // ... (Update local state logic remains same)
+          fetchDrivers(); // Refresh list to be safe
           setIsAddModalOpen(false);
-          
-          setNewDriver({
-              name: "", phone_number: "+1", gender: "Male", city: "Atlanta, GA", 
-              languages: "", bio: "", profile_image: "", vehicle_model: "", 
-              vehicle_color: "", vehicle_plate: ""
-          });
-
-          alert(`Driver "${createdDriverObj.share_username}" added successfully!`);
+          alert(`Driver added successfully!`);
       } catch (error) {
           alert("Error creating driver.");
-          console.error(error);
       } finally {
           setIsSubmitting(false);
       }
+  };
+
+
+  const handleUpdateDriver = async () => {
+    if (!selectedDriver) return;
+    setIsSubmitting(true);
+
+    try {
+        // 1. Reconstruct complex objects
+        const updatedVehicle = {
+            model: editFormData.vehicle_model,
+            color: editFormData.vehicle_color,
+            plate_number: editFormData.vehicle_plate
+        };
+
+        // 2. Prepare Payload (MAP FRONTEND KEYS TO DB COLUMNS)
+        const payload = {
+            share_username: editFormData.share_username,
+            pnumber: editFormData.phone_number, // 👈 CHANGED: 'phone_number' -> 'pnumber'
+            city: editFormData.city,
+            bio: editFormData.bio,
+            profile_image: editFormData.profile_image,
+            vehicle_details: JSON.stringify(updatedVehicle) 
+        };
+
+        // 3. API Call
+        const response = await fetch(`https://app.share-rides.com/admin/drivers/${selectedDriver.user_id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.message || "Update failed");
+        }
+
+        // 4. Update Local State (Keep using frontend naming for the UI)
+        const updatedDriver: Driver = {
+            ...selectedDriver,
+            share_username: editFormData.share_username,
+            phone_number: editFormData.phone_number, // UI still expects phone_number
+            city: editFormData.city,
+            bio: editFormData.bio,
+            profile_image: editFormData.profile_image,
+            vehicle_details: updatedVehicle
+        };
+
+        setDrivers(prev => prev.map(d => d.user_id === selectedDriver.user_id ? updatedDriver : d));
+        setSelectedDriver(updatedDriver);
+        setIsEditMode(false);
+        alert("Driver updated successfully!");
+
+    } catch (error: any) {
+        console.error(error);
+        alert(`Failed to update driver: ${error.message}`);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   // --- STATUS CHANGE HANDLER ---
@@ -207,15 +262,15 @@ export default function Drivers() {
     }
   };
 
-  // --- NEW: OPEN INVITE MODAL ---
+
+  // --- INVITE HANDLERS (Keep existing) ---
   const openInviteModal = (driver: Driver, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent opening detail modal
+    e.stopPropagation();
     setDriverToInvite(driver);
-    setInviteEmail(driver.email || ""); // Pre-fill if exists
+    setInviteEmail(driver.email || "");
     setIsInviteModalOpen(true);
   };
 
-  // --- NEW: SEND INVITE HANDLER ---
   const handleSendInvite = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!driverToInvite || !inviteEmail) return;
@@ -249,6 +304,8 @@ export default function Drivers() {
   return (
     <>
       <PageMeta title="Driver Management" description="Manage fleet and drivers" />
+
+     {/* --- ADD DRIVER MODAL (Keep existing code) --- */}
 
      {/* --- ADD DRIVER MODAL --- */}
 <Modal
@@ -405,7 +462,7 @@ export default function Drivers() {
 </Modal>
 
 
-      {/* --- NEW: INVITE MODAL --- */}
+      {/* --- INVITE MODAL (Keep existing code) --- */}
       <Modal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} title="Send Portal Invitation">
           <form onSubmit={handleSendInvite} className="space-y-4 pt-2">
               <p className="text-sm text-gray-500">
@@ -436,28 +493,206 @@ export default function Drivers() {
           </form>
       </Modal>
 
-      {/* --- DRIVER DETAIL MODAL --- */}
-      <Modal isOpen={!!selectedDriver} onClose={() => setSelectedDriver(null)} title={selectedDriver?.share_username || "Details"}>
-         {/* ... (Existing Detail Modal Code) ... */}
-         {/* ... Just ensuring logic is preserved ... */}
-         <div className="space-y-4">
-            {/* ... image ... */}
-            <div className="grid grid-cols-2 gap-4">
-               {/* ... stats ... */}
-            </div>
-            {canManageDrivers && (
-                <div className="border-t pt-4 mt-2">
-                    <h4 className="text-sm font-semibold mb-2">Actions</h4>
-                    <div className="flex gap-2">
-                        {selectedDriver?.status !== 'suspended' && <button onClick={() => handleStatusChange(selectedDriver!.user_id, 'suspended')} className="px-3 py-1 bg-red-100 text-red-600 rounded text-sm">Suspend</button>}
-                        {selectedDriver?.status !== 'available' && <button onClick={() => handleStatusChange(selectedDriver!.user_id, 'available')} className="px-3 py-1 bg-green-100 text-green-600 rounded text-sm">Activate</button>}
+      {/* --- DRIVER DETAIL & EDIT MODAL --- */}
+      <Modal 
+        isOpen={!!selectedDriver} 
+        onClose={() => setSelectedDriver(null)} 
+        title={isEditMode ? "Edit Driver" : (selectedDriver?.share_username || "Details")}
+      >
+         {selectedDriver && (
+             <div className="space-y-6">
+                 
+                 {/* 1. Header Actions (Edit / Save / Cancel) */}
+                 <div className="flex justify-end gap-2 border-b pb-4">
+                     {!isEditMode ? (
+                         <button 
+                             onClick={() => setIsEditMode(true)}
+                             className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition"
+                         >
+                             <Edit2 size={14} /> Edit Profile
+                         </button>
+                     ) : (
+                         <>
+                            <button 
+                                onClick={() => setIsEditMode(false)}
+                                className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium transition"
+                            >
+                                <X size={14} /> Cancel
+                            </button>
+                            <button 
+                                onClick={handleUpdateDriver}
+                                disabled={isSubmitting}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-brand-500 text-white hover:bg-brand-600 rounded-md text-sm font-medium transition shadow-sm"
+                            >
+                                <Save size={14} /> {isSubmitting ? "Saving..." : "Save Changes"}
+                            </button>
+                         </>
+                     )}
+                 </div>
+
+                 {/* 2. Profile Image Section */}
+                 <div className="flex flex-col items-center">
+                     <div className="relative group">
+                         <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100 shadow-sm">
+                             <img 
+                                src={isEditMode ? (editFormData.profile_image || "https://ui-avatars.com/api/?name=Driver") : (selectedDriver.profile_image || "https://ui-avatars.com/api/?name=Driver")} 
+                                alt="Profile" 
+                                className="w-full h-full object-cover"
+                             />
+                         </div>
+                         
+                         {/* Edit Overlay */}
+                         {isEditMode && (
+                             <div 
+                                onClick={() => editFileRef.current?.click()}
+                                className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                             >
+                                 {isUploading ? <UploadCloud className="text-white animate-bounce" /> : <Camera className="text-white" />}
+                             </div>
+                         )}
+                         <input type="file" ref={editFileRef} onChange={handleEditFileChange} className="hidden" accept="image/*" />
+                     </div>
+                     {isEditMode && <p className="text-xs text-gray-400 mt-2">Click image to change</p>}
+                 </div>
+
+                 {/* 3. Fields Grid */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     
+                     {/* Name */}
+                     <div className="space-y-1">
+                         <label className="text-xs font-bold text-gray-500 uppercase">Full Name</label>
+                         {isEditMode ? (
+                             <input 
+                                className="w-full p-2 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                                value={editFormData.share_username}
+                                onChange={e => setEditFormData({...editFormData, share_username: e.target.value})}
+                             />
+                         ) : (
+                             <p className="font-medium text-gray-900">{selectedDriver.share_username}</p>
+                         )}
+                     </div>
+
+                     {/* Phone */}
+                     <div className="space-y-1">
+                         <label className="text-xs font-bold text-gray-500 uppercase">Phone</label>
+                         {isEditMode ? (
+                             <input 
+                                className="w-full p-2 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                                value={editFormData.phone_number}
+                                onChange={e => setEditFormData({...editFormData, phone_number: e.target.value})}
+                             />
+                         ) : (
+                             <p className="font-medium text-gray-900">{selectedDriver.phone_number}</p>
+                         )}
+                     </div>
+
+                     {/* City */}
+                     <div className="space-y-1">
+                         <label className="text-xs font-bold text-gray-500 uppercase">City</label>
+                         {isEditMode ? (
+                             <input 
+                                className="w-full p-2 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+                                value={editFormData.city}
+                                onChange={e => setEditFormData({...editFormData, city: e.target.value})}
+                             />
+                         ) : (
+                             <p className="font-medium text-gray-900">{selectedDriver.city || "N/A"}</p>
+                         )}
+                     </div>
+
+                     {/* Earnings (Read Only) */}
+                     <div className="space-y-1">
+                         <label className="text-xs font-bold text-gray-500 uppercase">Total Earnings</label>
+                         <p className="font-mono font-medium text-green-600">$ {selectedDriver.earnings}</p>
+                     </div>
+
+                     {/* Bio (Full Width) */}
+                     <div className="md:col-span-2 space-y-1">
+                         <label className="text-xs font-bold text-gray-500 uppercase">Bio</label>
+                         {isEditMode ? (
+                             <textarea 
+                                rows={2}
+                                className="w-full p-2 border rounded bg-gray-50 focus:bg-white focus:ring-1 focus:ring-brand-500 outline-none text-sm"
+                                value={editFormData.bio}
+                                onChange={e => setEditFormData({...editFormData, bio: e.target.value})}
+                             />
+                         ) : (
+                             <p className="text-sm text-gray-600">{selectedDriver.bio || "No bio available."}</p>
+                         )}
+                     </div>
+
+                     {/* --- VEHICLE SECTION --- */}
+                     <div className="md:col-span-2 pt-4 border-t mt-2">
+                         <h4 className="text-sm font-bold text-gray-900 mb-3">Vehicle Information</h4>
+                         <div className="grid grid-cols-3 gap-3">
+                            {/* Model */}
+                            <div>
+                                <label className="text-xs text-gray-500">Model</label>
+                                {isEditMode ? (
+                                    <input 
+                                        className="w-full p-2 border rounded bg-gray-50 text-sm"
+                                        value={editFormData.vehicle_model}
+                                        onChange={e => setEditFormData({...editFormData, vehicle_model: e.target.value})}
+                                    />
+                                ) : (
+                                    <p className="font-medium text-sm">{selectedDriver.vehicle_details?.model}</p>
+                                )}
+                            </div>
+
+                            {/* Color */}
+                            <div>
+                                <label className="text-xs text-gray-500">Color</label>
+                                {isEditMode ? (
+                                    <input 
+                                        className="w-full p-2 border rounded bg-gray-50 text-sm"
+                                        value={editFormData.vehicle_color}
+                                        onChange={e => setEditFormData({...editFormData, vehicle_color: e.target.value})}
+                                    />
+                                ) : (
+                                    <p className="font-medium text-sm">{selectedDriver.vehicle_details?.color}</p>
+                                )}
+                            </div>
+
+                            {/* Plate */}
+                            <div>
+                                <label className="text-xs text-gray-500">Plate #</label>
+                                {isEditMode ? (
+                                    <input 
+                                        className="w-full p-2 border rounded bg-gray-50 text-sm"
+                                        value={editFormData.vehicle_plate}
+                                        onChange={e => setEditFormData({...editFormData, vehicle_plate: e.target.value})}
+                                    />
+                                ) : (
+                                    <p className="font-medium text-sm">{selectedDriver.vehicle_details?.plate_number}</p>
+                                )}
+                            </div>
+                         </div>
+                     </div>
+                 </div>
+
+                 {/* 4. Status Actions (Only show in View Mode) */}
+                 {!isEditMode && canManageDrivers && (
+                    <div className="border-t pt-4 mt-2">
+                        <h4 className="text-sm font-semibold mb-2">Account Status</h4>
+                        <div className="flex gap-2">
+                            {selectedDriver.status !== 'suspended' && (
+                                <button onClick={() => handleStatusChange(selectedDriver.user_id, 'suspended')} className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded text-sm font-medium transition">
+                                    Suspend Driver
+                                </button>
+                            )}
+                            {selectedDriver.status !== 'available' && (
+                                <button onClick={() => handleStatusChange(selectedDriver.user_id, 'available')} className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-600 rounded text-sm font-medium transition">
+                                    Activate Account
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
-         </div>
+                 )}
+             </div>
+         )}
       </Modal>
 
-      {/* MAIN TABLE */}
+      {/* MAIN TABLE (Keep existing table code) */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Driver Fleet ({drivers.length})</h2>
@@ -466,15 +701,15 @@ export default function Drivers() {
                   {canManageDrivers && <button onClick={() => setIsAddModalOpen(true)} className="rounded-lg bg-brand-500 px-6 py-2 text-sm font-medium text-white hover:bg-brand-600">+ Add Driver</button>}
               </div>
           </div>
-
          <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-             <thead>
+            <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="p-4 text-xs font-semibold uppercase text-gray-500">Driver</th>
                 <th className="p-4 text-xs font-semibold uppercase text-gray-500">Vehicle</th>
                 <th className="p-4 text-xs font-semibold uppercase text-gray-500">Status</th>
-                <th className="p-4 text-xs font-semibold uppercase text-gray-500">Earnings</th>
+              {/*  <th className="p-4 text-xs font-semibold uppercase text-gray-500">Earnings</th> 
+              */}
                 <th className="p-4 text-xs font-semibold uppercase text-gray-500 text-right">Actions</th>
               </tr>
             </thead>
@@ -485,7 +720,7 @@ export default function Drivers() {
                   <tr key={driver.user_id} className="group hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedDriver(driver)}>
                     <td className="p-4">
                         <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                        <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border">
                            {driver.profile_image ? <img src={driver.profile_image} alt="" className="h-full w-full object-cover"/> : "👨‍✈️"}
                         </div>
                         <div>
@@ -496,15 +731,13 @@ export default function Drivers() {
                     </td>
                       <td className="p-4 text-sm">{driver.vehicle_details?.model || "Unknown"} <br/><span className="text-xs text-gray-500">{driver.vehicle_details?.plate_number}</span></td>
                       <td className="p-4"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(driver.status)}`}>{driver.status}</span></td>
-                      <td className="p-4 font-mono text-sm text-gray-600">$ {driver.earnings}</td>
-                      
-                      {/* --- NEW: INVITE BUTTON --- */}
+                      {/* <td className="p-4 font-mono text-sm text-gray-600">$ {driver.earnings}</td> */}
                       <td className="p-4 text-right">
                         <button 
                             onClick={(e) => openInviteModal(driver, e)}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs font-bold transition border border-gray-300"
+                            className=" hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs font-bold transition border border-gray-300"
                         >
-                            {driver.email ? 'Resend Invite' : 'Send Invite ✉️'}
+                            {driver.email ? 'Resend Invite ✉️' : 'Invite ✉️'}
                         </button>
                       </td>
                   </tr>
