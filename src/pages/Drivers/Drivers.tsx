@@ -139,24 +139,64 @@ export default function Drivers() {
     finally { setIsUploading(false); }
   };
 
-  // --- SUBMIT HANDLER (CREATE) ---
-  const handleCreateDriver = async (e: React.FormEvent) => {
+
+ const handleCreateDriver = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSubmitting(true);
+
       try {
           const response = await fetch(`https://app.share-rides.com/admin/drivers`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newDriver)
           });
+
           if (!response.ok) throw new Error('Failed to create driver');
+          
           const responseData = await response.json();
-          // ... (Update local state logic remains same)
-          fetchDrivers(); // Refresh list to be safe
+
+          // A. VISUALLY UPDATE LIST (PREPEND)
+          // We construct the object manually to match the interface so it appears immediately
+          const createdDriverObj: Driver = {
+              id: responseData.driver.user_id,
+              user_id: responseData.driver.user_id,
+              share_username: newDriver.name,
+              phone_number: newDriver.phone_number,
+              city: newDriver.city,
+              status: 'available', // Default from backend
+              earnings: 0,
+              profile_image: newDriver.profile_image,
+              bio: newDriver.bio,
+              vehicle_details: {
+                  model: newDriver.vehicle_model,
+                  color: newDriver.vehicle_color,
+                  plate_number: newDriver.vehicle_plate
+              }
+          };
+
+          setDrivers(prev => [createdDriverObj, ...prev]);
           setIsAddModalOpen(false);
-          alert(`Driver added successfully!`);
+          
+          // Reset Form
+          setNewDriver({
+              name: "",
+              phone_number: "+1",
+              gender: "Male",
+              city: "Atlanta, GA",
+              languages: "",
+              bio: "",
+              profile_image: "",
+              vehicle_model: "",
+              vehicle_color: "",
+              vehicle_plate: ""
+          });
+
+          // B. FEEDBACK ALERT
+          alert(`Driver "${createdDriverObj.share_username}" added successfully!`);
+
       } catch (error) {
-          alert("Error creating driver.");
+          alert("Error creating driver. Please check the console.");
+          console.error(error);
       } finally {
           setIsSubmitting(false);
       }
