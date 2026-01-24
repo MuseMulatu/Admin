@@ -25,7 +25,7 @@ export default function Pricing() {
         const data = await res.json();
         setRules(data);
     } catch (e) {
-        alert("Failed to load pricing rules");
+        console.error("Failed to load pricing rules", e);
     }
     setLoading(false);
   };
